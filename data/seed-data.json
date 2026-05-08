@@ -1,0 +1,36 @@
+{
+  "inventory": {
+    "p001": 2,
+    "p002": 2,
+    "p003": 4,
+    "p004": 12,
+    "p005": 18,
+    "p006": 8,
+    "p007": 10,
+    "p008": 5,
+    "p009": 6
+  },
+  "orders": [
+    {
+      "id": "ord_0001",
+      "customerName": "דוגמה לקוח",
+      "items": [
+        {
+          "productId": "p001",
+          "quantity": 1,
+          "rentDays": 3
+        },
+        {
+          "productId": "p005",
+          "quantity": 2
+        }
+      ],
+      "total": 39,
+      "status": "completed",
+      "createdAt": "2026-05-08T10:00:00.000Z",
+      "updatedAt": "2026-05-08T10:01:00.000Z",
+      "locker": null
+    }
+  ],
+  "returns": []
+}

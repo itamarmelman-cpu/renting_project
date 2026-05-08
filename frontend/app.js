@@ -4,7 +4,8 @@ const STORAGE_KEYS = {
     rentDays: 'aguda2go.rentDays',
 };
 
-const ESP32_BASE_URL = 'http://esp32.local';
+// For local development you can use the mock ESP32 server at http://localhost:5001
+const ESP32_BASE_URL = 'http://localhost:5001';
 
 const PRODUCTS = [
     {
@@ -15,6 +16,7 @@ const PRODUCTS = [
         price: 5,
         stock: 3,
         visual: '🧮',
+        image: 'catalog/products-pics/scientific-calculator.png',
         categoryLabel: 'השכרה',
         rentLabel: 'ליום',
         searchTerms: 'michshovon calculator scientific casio',
@@ -27,6 +29,7 @@ const PRODUCTS = [
         price: 5,
         stock: 2,
         visual: '📈',
+        image: 'catalog/products-pics/graphing-calculator.png',
         categoryLabel: 'השכרה',
         rentLabel: 'ליום',
         searchTerms: 'graphing calculator ti-84 statistics',
@@ -39,6 +42,7 @@ const PRODUCTS = [
         price: 5,
         stock: 4,
         visual: '📘',
+        image: 'catalog/products-pics/electronic-dictionary.png',
         categoryLabel: 'השכרה',
         rentLabel: 'ליום',
         searchTerms: 'dictionary hebrew english babylon',
@@ -263,6 +267,31 @@ function attachGlobalEventHandlers() {
             appState.catalogSearchQuery = searchInput ? searchInput.value.trim() : '';
             renderCurrentRoute('catalog');
         }
+
+        // Inventory management handlers
+        const addProductBtn = event.target.closest('#add-product-btn');
+        if (addProductBtn) {
+            openAddModal();
+            return;
+        }
+
+        const editStockBtn = event.target.closest('.edit-stock-btn');
+        if (editStockBtn) {
+            const productId = editStockBtn.dataset.productId;
+            const productName = editStockBtn.dataset.productName;
+            openEditModal(productId, productName);
+            return;
+        }
+
+        const removeProductBtn = event.target.closest('.remove-product-btn');
+        if (removeProductBtn) {
+            const productId = removeProductBtn.dataset.productId;
+            const productName = removeProductBtn.dataset.productName;
+            if (confirm(`Remove "${productName}" from inventory?`)) {
+                removeProduct(productId);
+            }
+            return;
+        }
     });
 
     appMain.addEventListener('submit', (event) => {
@@ -284,6 +313,20 @@ function attachGlobalEventHandlers() {
         const checkoutForm = event.target.closest('[data-checkout-form]');
         if (checkoutForm) {
             event.preventDefault();
+        }
+
+        const editStockForm = event.target.closest('#edit-stock-form');
+        if (editStockForm) {
+            event.preventDefault();
+            handleEditStockSubmit();
+            return;
+        }
+
+        const addProductForm = event.target.closest('#add-product-form');
+        if (addProductForm) {
+            event.preventDefault();
+            handleAddProductSubmit();
+            return;
         }
     });
 
@@ -605,7 +648,7 @@ function renderProductCard(product) {
 
     return `
         <article class="product-card card">
-            <div class="product-visual">${escapeHtml(product.visual)}</div>
+            ${product.image ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}" class="product-image"/>` : `<div class="product-visual">${escapeHtml(product.visual)}</div>`}
             <div class="product-content">
                 <div class="product-header">
                     <h2>${escapeHtml(product.name)}</h2>
@@ -1002,35 +1045,37 @@ function incrementInventoryForReturn(productId) {
 }
 
 function renderInventoryManagementPage() {
-    const inventoryRows = PRODUCTS.map((product) => `
-        <tr>
-            <td>${escapeHtml(product.name)}</td>
-            <td>${escapeHtml(product.categoryLabel)}</td>
-            <td>${getInventoryStock(product.id)}</td>
-            <td>${getInventoryStock(product.id) <= 2 ? '<span class="stock-pill stock-low">Low</span>' : '<span class="stock-pill stock-ok">Healthy</span>'}</td>
-        </tr>
-    `).join('');
+    const inventoryRows = PRODUCTS.map((product) => {
+        const stock = getInventoryStock(product.id);
+        const statusClass = stock <= 2 ? 'stock-low' : 'stock-ok';
+        const statusText = stock <= 2 ? 'Low' : 'Healthy';
+        return `
+            <tr data-product-id="${product.id}">
+                <td>${escapeHtml(product.name)}</td>
+                <td>${escapeHtml(product.categoryLabel)}</td>
+                <td>${stock}</td>
+                <td><span class="stock-pill ${statusClass}">${statusText}</span></td>
+                <td>
+                    <button class="action-button edit-stock-btn" data-product-id="${product.id}" data-product-name="${escapeHtml(product.name)}">✏️ Edit</button>
+                    <button class="action-button remove-product-btn" data-product-id="${product.id}" data-product-name="${escapeHtml(product.name)}">❌ Remove</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
 
     return `
         <section class="page-hero card">
             <div>
                 <span class="eyebrow">ניהול מלאי</span>
                 <h1>כניסה אגודה</h1>
-                <p>דף זה מוכן לתכונות ניהול בעתיד וכרגע חושף את מצב המלאי החי.</p>
+                <p>Manage inventory: edit stock levels, add new products, or remove items.</p>
             </div>
         </section>
 
         <section class="card inventory-card">
-            <div class="inventory-tabs-placeholder">
-                <div class="tab-pill is-selected">לוח מחוונים של סטטיסטיקה</div>
-                <div class="tab-pill">ניהול מלאי</div>
-                <div class="tab-pill">עקיבה אחר הזמנות</div>
+            <div style="display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;">
+                <button class="primary-button" id="add-product-btn">➕ Add New Product</button>
             </div>
-
-            <pre class="todo-code-block"><code>TODO: בנה את ממשק הלוקים הת-שלושה.
-- לוח מחוונים של סטטיסטיקה
-- ניהול מלאי
-- עקיבה אחר הזמנות</code></pre>
 
             <div class="table-wrap">
                 <table class="inventory-table">
@@ -1040,6 +1085,7 @@ function renderInventoryManagementPage() {
                             <th>סוג</th>
                             <th>מלאי</th>
                             <th>סטטוס</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1048,6 +1094,106 @@ function renderInventoryManagementPage() {
                 </table>
             </div>
         </section>
+
+        <!-- Edit Stock Modal -->
+        <div id="edit-stock-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h2>Edit Stock Level</h2>
+                <form id="edit-stock-form">
+                    <div>
+                        <label>Product Name</label>
+                        <input type="text" id="edit-product-name" readonly style="background: #f0f0f0;">
+                    </div>
+                    <div>
+                        <label>Stock Quantity</label>
+                        <input type="number" id="edit-stock-input" min="0" required>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button type="submit" class="primary-button">Save</button>
+                        <button type="button" class="secondary-button" onclick="closeEditModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Add Product Modal -->
+        <div id="add-product-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h2>Add New Product</h2>
+                <form id="add-product-form">
+                    <div>
+                        <label>Product Name</label>
+                        <input type="text" id="new-product-name" required>
+                    </div>
+                    <div>
+                        <label>Type</label>
+                        <select id="new-product-type" required>
+                            <option value="">Select...</option>
+                            <option value="rent">Rental (השכרה)</option>
+                            <option value="buy">Purchase (רכישה)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Initial Stock</label>
+                        <input type="number" id="new-product-stock" min="0" value="0" required>
+                    </div>
+                    <div>
+                        <label>Price (₪)</label>
+                        <input type="number" id="new-product-price" min="0" step="0.01" value="0" required>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button type="submit" class="primary-button">Add Product</button>
+                        <button type="button" class="secondary-button" onclick="closeAddModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <style>
+            .action-button {
+                padding: 6px 12px;
+                font-size: 0.9rem;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                background: white;
+                cursor: pointer;
+                margin-right: 5px;
+            }
+            .action-button:hover {
+                background: #f5f5f5;
+            }
+            .modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 1000;
+            }
+            .modal-content {
+                background: white;
+                padding: 30px;
+                border-radius: 12px;
+                max-width: 400px;
+                width: 90%;
+            }
+            .modal-content h2 {
+                margin-top: 0;
+            }
+            .modal-content input,
+            .modal-content select {
+                width: 100%;
+                padding: 10px;
+                margin: 10px 0;
+                border: 1px solid #ccc;
+                border-radius: 6px;
+                font-size: 1rem;
+            }
+        </style>
     `;
 }
 
@@ -1312,9 +1458,153 @@ function attachSupplementalHandlers() {
     // Intentionally left blank for future shared behavior.
 }
 
+// ===== Inventory Management Functions =====
+
+function openEditModal(productId, productName) {
+    const modal = document.getElementById('edit-stock-modal');
+    const nameField = document.getElementById('edit-product-name');
+    const stockField = document.getElementById('edit-stock-input');
+    
+    if (modal && nameField && stockField) {
+        nameField.value = productName;
+        stockField.value = getInventoryStock(productId);
+        stockField.dataset.productId = productId;
+        modal.style.display = 'flex';
+    }
+}
+
+function closeEditModal() {
+    const modal = document.getElementById('edit-stock-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function openAddModal() {
+    const modal = document.getElementById('add-product-modal');
+    const form = document.getElementById('add-product-form');
+    if (modal && form) {
+        form.reset();
+        modal.style.display = 'flex';
+    }
+}
+
+function closeAddModal() {
+    const modal = document.getElementById('add-product-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function handleEditStockSubmit() {
+    const stockField = document.getElementById('edit-stock-input');
+    if (!stockField || !stockField.dataset.productId) {
+        showNotice('Error: Product ID not found', 'error');
+        return;
+    }
+
+    const productId = stockField.dataset.productId;
+    const newStock = parseInt(stockField.value, 10);
+
+    if (isNaN(newStock) || newStock < 0) {
+        showNotice('Please enter a valid stock number', 'error');
+        return;
+    }
+
+    appState.inventory[productId] = newStock;
+    saveStoredJson(STORAGE_KEYS.inventory, appState.inventory);
+    
+    showNotice(`Stock updated! ${PRODUCTS.find(p => p.id === productId)?.name || productId} now has ${newStock} units.`, 'success');
+    closeEditModal();
+    renderCurrentRoute('inventory');
+}
+
+function handleAddProductSubmit() {
+    const nameField = document.getElementById('new-product-name');
+    const typeField = document.getElementById('new-product-type');
+    const stockField = document.getElementById('new-product-stock');
+    const priceField = document.getElementById('new-product-price');
+
+    if (!nameField || !typeField || !stockField || !priceField) {
+        showNotice('Form fields not found', 'error');
+        return;
+    }
+
+    const name = nameField.value.trim();
+    const type = typeField.value;
+    const stock = parseInt(stockField.value, 10);
+    const price = parseFloat(priceField.value);
+
+    if (!name) {
+        showNotice('Please enter a product name', 'error');
+        return;
+    }
+    if (!type) {
+        showNotice('Please select a product type', 'error');
+        return;
+    }
+    if (isNaN(stock) || stock < 0) {
+        showNotice('Please enter a valid stock quantity', 'error');
+        return;
+    }
+    if (isNaN(price) || price < 0) {
+        showNotice('Please enter a valid price', 'error');
+        return;
+    }
+
+    // Generate new product ID
+    const newId = `p${String(PRODUCTS.length + 1).padStart(3, '0')}`;
+    
+    const newProduct = {
+        id: newId,
+        name: name,
+        description: `${name} - Added ${new Date().toLocaleDateString()}`,
+        type: type === 'rent' ? 'rent' : 'buy',
+        price: price,
+        stock: stock,
+        visual: '📦',
+        image: '',
+        categoryLabel: type === 'rent' ? 'השכרה' : 'רכישה',
+        rentLabel: type === 'rent' ? 'ליום' : '',
+        searchTerms: name.toLowerCase(),
+    };
+
+    PRODUCTS.push(newProduct);
+    appState.inventory[newId] = stock;
+    saveStoredJson(STORAGE_KEYS.inventory, appState.inventory);
+
+    showNotice(`✅ New product "${name}" added successfully!`, 'success');
+    closeAddModal();
+    renderCurrentRoute('inventory');
+}
+
+function removeProduct(productId) {
+    const product = PRODUCTS.find(p => p.id === productId);
+    if (!product) {
+        showNotice('Product not found', 'error');
+        return;
+    }
+
+    // Remove from PRODUCTS array
+    const index = PRODUCTS.indexOf(product);
+    if (index > -1) {
+        PRODUCTS.splice(index, 1);
+    }
+
+    // Remove from inventory
+    delete appState.inventory[productId];
+    saveStoredJson(STORAGE_KEYS.inventory, appState.inventory);
+
+    showNotice(`🗑️ Product "${product.name}" removed from inventory`, 'success');
+    }
+    renderCurrentRoute('inventory');
+
 function finalizeInventorySeed() {
     appState.inventory = ensureInventoryShape(appState.inventory);
 }
 
 finalizeInventorySeed();
 attachSupplementalHandlers();
+
+window.closeEditModal = closeEditModal;
+window.closeAddModal = closeAddModal;

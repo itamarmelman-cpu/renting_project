@@ -352,6 +352,15 @@ button {
     font-weight: 700;
 }
 
+.product-image {
+    width: 84px;
+    height: 84px;
+    object-fit: contain;
+    border-radius: 12px;
+    display: block;
+    margin: 0 0 8px 0;
+}
+
 .product-content,
 .cart-item-content {
     display: flex;
