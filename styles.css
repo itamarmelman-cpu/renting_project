@@ -1,17 +1,20 @@
 :root {
     color-scheme: light;
-    --bg: #f4f1ea;
+    --bg: #f9f7f1;
     --surface: #ffffff;
-    --surface-soft: #faf8f4;
-    --border: #ddd7cd;
+    --surface-soft: #fef9f3;
+    --border: #e8dfd3;
     --text: #1f2933;
     --muted: #66737f;
-    --accent: #2d6f73;
-    --accent-dark: #224b4d;
-    --accent-soft: rgba(45, 111, 115, 0.12);
+    --accent: #6db3b0;
+    --accent-dark: #5a9a97;
+    --accent-soft: rgba(109, 179, 176, 0.12);
+    --color-yellow: #ffeaa7;
+    --color-pink: #fab1a0;
+    --color-teal: #a8e6e6;
     --success: #2f855a;
-    --warning: #b7791f;
-    --danger: #b45309;
+    --warning: #f0ad4e;
+    --danger: #e67e22;
     --shadow: 0 18px 36px rgba(31, 41, 51, 0.08);
     --radius-xl: 28px;
     --radius-lg: 20px;
@@ -32,8 +35,8 @@ body {
 body {
     margin: 0;
     background:
-        radial-gradient(circle at top left, rgba(45, 111, 115, 0.09), transparent 34%),
-        radial-gradient(circle at top right, rgba(183, 121, 31, 0.08), transparent 26%),
+        radial-gradient(circle at top left, rgba(168, 230, 230, 0.08), transparent 34%),
+        radial-gradient(circle at top right, rgba(255, 234, 167, 0.06), transparent 26%),
         var(--bg);
     color: var(--text);
 }
@@ -89,7 +92,7 @@ button {
     border-radius: 16px;
     display: grid;
     place-items: center;
-    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    background: linear-gradient(135deg, var(--color-teal), #9dd7d4);
     color: #fff;
     font-weight: 700;
     letter-spacing: 0.08em;
@@ -154,12 +157,12 @@ button {
 }
 
 .nav-button.is-active {
-    border-color: var(--accent);
-    background: var(--accent-soft);
+    border-color: var(--color-teal);
+    background: rgba(168, 230, 230, 0.15);
 }
 
 .nav-button-accent {
-    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    background: linear-gradient(135deg, var(--color-pink), #f399a0);
     color: #fff;
 }
 
@@ -172,7 +175,7 @@ button {
     margin-inline-start: 8px;
     padding: 0 7px;
     border-radius: 999px;
-    background: var(--accent-dark);
+    background: var(--color-pink);
     color: #fff;
     font-size: 0.78rem;
     font-weight: 700;
@@ -296,7 +299,7 @@ button {
 .payment-button {
     min-height: 48px;
     padding: 0 18px;
-    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    background: linear-gradient(135deg, var(--color-teal), #9dd7d4);
     color: #fff;
     font-weight: 700;
 }
@@ -321,6 +324,19 @@ button {
 
 .product-card {
     padding: 20px;
+    background: var(--surface);
+}
+
+.product-card:nth-child(3n + 1) {
+    background: #ffeaa7;
+}
+
+.product-card:nth-child(3n + 2) {
+    background: #fab1a0;
+}
+
+.product-card:nth-child(3n) {
+    background: #a8e6e6;
 }
 
 .product-visual,
@@ -416,8 +432,8 @@ button {
 }
 
 .rent-day-button.is-selected {
-    background: var(--accent-soft);
-    border-color: var(--accent);
+    background: rgba(168, 230, 230, 0.2);
+    border-color: var(--color-teal);
 }
 
 .cart-layout,
@@ -490,11 +506,13 @@ button {
 }
 
 .payment-button.apple-pay {
-    background: linear-gradient(135deg, #111827, #374151);
+    background: linear-gradient(135deg, var(--color-yellow), #ffd687);
+    color: #333;
 }
 
 .payment-button.google-pay {
-    background: linear-gradient(135deg, #2d6f73, #1f4d50);
+    background: linear-gradient(135deg, var(--color-pink), #f39c89);
+    color: #fff;
 }
 
 .locker-description,
