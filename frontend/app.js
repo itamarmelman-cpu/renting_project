@@ -142,14 +142,9 @@ function initializeApp() {
     syncHeaderState();
     window.addEventListener('hashchange', () => renderCurrentRoute(getRouteFromHash()));
 
-    // Always ensure catalog is set if no hash exists
-    if (!location.hash) {
-        location.hash = '#catalog';
-        renderCurrentRoute('catalog');
-        return;
-    }
-
-    renderCurrentRoute(getRouteFromHash());
+    // On first load, default to catalog
+    const route = !location.hash ? 'catalog' : getRouteFromHash();
+    renderCurrentRoute(route);
 }
 
 function mountAppShell() {
