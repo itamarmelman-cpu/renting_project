@@ -155,22 +155,22 @@ function mountAppShell() {
     document.body.innerHTML = `
         <div class="app-shell">
             <header class="app-header">
-                <button class="brand-button" type="button" data-route-link="catalog" aria-label="Go to catalog">
+                <button class="brand-button" type="button" data-route-link="catalog" aria-label="עבור לקטלוג">
                     <span class="brand-mark">A2G</span>
                     <span class="brand-copy">
                         <strong>Aguda2Go</strong>
-                        <span>Smart locker rentals</span>
+                        <span>השכרת לוקר חכמה</span>
                     </span>
                 </button>
 
-                <nav class="header-actions" aria-label="Primary navigation">
-                    <button class="nav-button" type="button" data-route-link="catalog">Catalog</button>
-                    <button class="nav-button" type="button" data-route-link="return">Return Product</button>
+                <nav class="header-actions" aria-label="ניווט ראשוני">
+                    <button class="nav-button" type="button" data-route-link="catalog">קטלוג</button>
+                    <button class="nav-button" type="button" data-route-link="return">החזרת מוצר</button>
                     <button class="nav-button" type="button" data-route-link="cart">
-                        <span>Cart</span>
+                        <span>עגלה</span>
                         <span class="cart-badge" id="cart-badge" hidden>0</span>
                     </button>
-                    <button class="nav-button nav-button-accent" type="button" data-route-link="inventory">Aguda Login</button>
+                    <button class="nav-button nav-button-accent" type="button" data-route-link="inventory">כניסה אגודה</button>
                 </nav>
             </header>
 
@@ -187,15 +187,15 @@ function mountAppShell() {
                     <section>
                         <h3>ניווט מהיר</h3>
                         <div class="footer-links">
-                            <button type="button" class="footer-link" data-route-link="catalog">Catalog</button>
-                            <button type="button" class="footer-link" data-route-link="cart">Cart</button>
-                            <button type="button" class="footer-link" data-route-link="return">Return Product</button>
-                            <button type="button" class="footer-link" data-route-link="inventory">Inventory Management</button>
+                            <button type="button" class="footer-link" data-route-link="catalog">קטלוג</button>
+                            <button type="button" class="footer-link" data-route-link="cart">עגלה</button>
+                            <button type="button" class="footer-link" data-route-link="return">החזרת מוצר</button>
+                            <button type="button" class="footer-link" data-route-link="inventory">ניהול מלאי</button>
                         </div>
                     </section>
                     <section>
-                        <h3>Project Note</h3>
-                        <p>Minimal UI, persistent inventory state, and mocked hardware operations for the ESP32 locker.</p>
+                        <h3>הערת פרויקט</h3>
+                        <p>ממשק משתמש מינימלי, מצב מלאי קבוע, וניסיונות חומרה מדומים ללוקר ESP32.</p>
                     </section>
                 </div>
             </footer>
@@ -491,13 +491,13 @@ function getRentDaysPreference(productId) {
 function addProductToCart(productId) {
     const product = getProductById(productId);
     if (!product) {
-        showNotice('Product not found.', 'error');
+        showNotice('מוצר לא נמצא.', 'error');
         return;
     }
 
     const availableStock = getAvailableStock(productId);
     if (availableStock <= 0) {
-        showNotice('This product is currently out of stock.', 'error');
+        showNotice('מוצר זה אינו זמין כרגע.', 'error');
         return;
     }
 
@@ -516,7 +516,7 @@ function addProductToCart(productId) {
     }
 
     saveCartState();
-    showNotice(`${product.name} added to cart.`, 'success');
+    showNotice(`${product.name} נוסף לעגלה.`, 'success');
     renderCurrentRoute(getRouteFromHash() === 'cart' ? 'cart' : 'catalog');
 }
 
@@ -534,7 +534,7 @@ function updateCartItemQuantity(productId, delta) {
 
     const availableStock = getInventoryStock(productId);
     if (updatedQuantity > availableStock) {
-        showNotice('Not enough stock for that quantity.', 'error');
+        showNotice('אין מספיק מלאי לכמות זו.', 'error');
         return;
     }
 
@@ -577,7 +577,7 @@ function renderCatalogPage() {
     return `
         <section class="page-hero card">
             <div>
-                <span class="eyebrow">Catalog</span>
+                <span class="eyebrow">קטלוג</span>
                 <h1>קטלוג הציוד האקדמי</h1>
                 <p>בחרו מוצר, הגדירו ימים למוצרים להשכרה, והוסיפו לסל בקצב עבודה פשוט ונקי.</p>
             </div>
@@ -585,11 +585,11 @@ function renderCatalogPage() {
                 <input
                     type="text"
                     class="text-input"
-                    placeholder="Search products"
+                    placeholder="חיפוש מוצרים"
                     value="${escapeHtml(appState.catalogSearchQuery)}"
                     data-catalog-search-input
                 />
-                <button type="submit" class="primary-button" data-action="catalog-search">Search</button>
+                <button type="submit" class="primary-button" data-action="catalog-search">חפש</button>
             </form>
         </section>
 
@@ -613,7 +613,7 @@ function renderProductCard(product) {
                 </div>
                 <p>${escapeHtml(product.description)}</p>
                 <div class="product-meta">
-                    <span class="stock-pill">${escapeHtml(stockLabel)}</span>
+                    <span class="stock-pill">${escapeHtml(stockLabel.replace('Low stock:', 'מלאי נמוך:').replace('in stock', 'במלאי'))}</span>
                     <span class="price-pill">${product.price} ₪${product.type === 'rent' ? ` / ${escapeHtml(product.rentLabel)}` : ''}</span>
                 </div>
                 ${product.type === 'rent' ? renderRentDaySelector(product.id, selectedDays) : ''}
@@ -649,8 +649,8 @@ function renderRentDaySelector(productId, selectedDays) {
 function renderEmptyCatalogState() {
     return `
         <div class="card empty-state">
-            <h2>No products found</h2>
-            <p>Try a different search term.</p>
+            <h2>לא נמצאו מוצרים</h2>
+            <p>נסה מונח חיפוש אחר.</p>
         </div>
     `;
 }
@@ -659,11 +659,11 @@ function renderCartPage() {
     if (appState.cart.length === 0) {
         return `
             <section class="card empty-state empty-state-large">
-                <span class="eyebrow">Cart</span>
-                <h1>Your cart is empty</h1>
-                <p>Add products from the catalog to continue to checkout.</p>
+                <span class="eyebrow">עגלה</span>
+                <h1>העגלה שלך ריקה</h1>
+                <p>הוסף מוצרים מהקטלוג כדי להמשיך לתשלום.</p>
                 <div class="empty-state-actions">
-                    <button type="button" class="primary-button" data-route-link="catalog">Back to Catalog</button>
+                    <button type="button" class="primary-button" data-route-link="catalog">חזור לקטלוג</button>
                 </div>
             </section>
         `;
@@ -672,11 +672,11 @@ function renderCartPage() {
     return `
         <section class="page-hero card">
             <div>
-                <span class="eyebrow">Cart</span>
+                <span class="eyebrow">עגלה</span>
                 <h1>עגלת הקניות שלך</h1>
                 <p>בדקו את הפריטים לפני המעבר לתשלום הדמה ולשלב פתיחת הלוקר.</p>
             </div>
-            <button type="button" class="primary-button" data-route-link="checkout">Proceed to Checkout</button>
+            <button type="button" class="primary-button" data-route-link="checkout">עבור לתשלום</button>
         </section>
 
         <section class="cart-layout">
@@ -684,16 +684,16 @@ function renderCartPage() {
                 ${appState.cart.map(renderCartItem).join('')}
             </div>
             <aside class="cart-summary card">
-                <h2>Order Summary</h2>
+                <h2>סיכום הזמנה</h2>
                 <div class="summary-row">
-                    <span>Items</span>
+                    <span>פריטים</span>
                     <strong>${getCartItemCount()}</strong>
                 </div>
                 <div class="summary-row">
-                    <span>Total</span>
+                    <span>סך הכל</span>
                     <strong>${calculateCartTotal()} ₪</strong>
                 </div>
-                <button type="button" class="primary-button block-button" data-route-link="checkout">Proceed to Checkout</button>
+                <button type="button" class="primary-button block-button" data-route-link="checkout">עבור לתשלום</button>
             </aside>
         </section>
     `;
@@ -719,7 +719,7 @@ function renderCartItem(cartItem) {
                     <button type="button" class="icon-button" data-action="remove-cart-item" data-product-id="${product.id}">×</button>
                 </div>
                 <div class="cart-item-meta">
-                    <span>${product.type === 'rent' ? `${cartItem.rentDays} days` : 'Purchase item'}</span>
+                    <span>${product.type === 'rent' ? `${cartItem.rentDays} ימים` : 'פריט רכישה'}</span>
                     <span>${product.price} ₪${product.type === 'rent' ? ` / ${escapeHtml(product.rentLabel)}` : ''}</span>
                 </div>
                 <div class="cart-quantity-controls">
@@ -737,11 +737,11 @@ function renderCheckoutPage() {
     if (appState.cart.length === 0) {
         return `
             <section class="card empty-state empty-state-large">
-                <span class="eyebrow">Checkout</span>
-                <h1>No items to checkout</h1>
-                <p>Your cart is empty, so there is nothing to pay for.</p>
+                <span class="eyebrow">תשלום</span>
+                <h1>אין פריטים לתשלום</h1>
+                <p>העגלה שלך ריקה, אז אין מה לשלם.</p>
                 <div class="empty-state-actions">
-                    <button type="button" class="primary-button" data-route-link="catalog">Back to Catalog</button>
+                    <button type="button" class="primary-button" data-route-link="catalog">חזור לקטלוג</button>
                 </div>
             </section>
         `;
@@ -750,25 +750,25 @@ function renderCheckoutPage() {
     return `
         <section class="page-hero card">
             <div>
-                <span class="eyebrow">Checkout</span>
-                <h1>Dummy Checkout</h1>
-                <p>Fill in your name and choose a mock payment method. Successful payment will send you to locker control.</p>
+                <span class="eyebrow">תשלום</span>
+                <h1>תשלום דמה</h1>
+                <p>מלא את שמך ובחר בשיטת תשלום דמה. תשלום מוצלח יהיה לך לשليטה על לוקר.</p>
             </div>
             <div class="checkout-total">
-                <span>Total</span>
+                <span>סך הכל</span>
                 <strong>${calculateCartTotal()} ₪</strong>
             </div>
         </section>
 
         <section class="checkout-grid">
             <form class="card form-card" data-checkout-form>
-                <h2>Customer Details</h2>
+                <h2>פרטי הלקוח</h2>
                 <label class="field-group">
-                    <span>First Name</span>
+                    <span>שם פרטי</span>
                     <input type="text" class="text-input" name="firstName" required />
                 </label>
                 <label class="field-group">
-                    <span>Last Name</span>
+                    <span>שם משפחה</span>
                     <input type="text" class="text-input" name="lastName" required />
                 </label>
                 <div class="payment-actions">
@@ -778,7 +778,7 @@ function renderCheckoutPage() {
             </form>
 
             <aside class="card order-panel">
-                <h2>Cart Preview</h2>
+                <h2>תצוגה מקדימה של הסל</h2>
                 <div class="order-preview-list">
                     ${appState.cart.map((item) => {
                         const product = getProductById(item.productId);
@@ -818,7 +818,7 @@ function processMockPayment(provider) {
     for (const cartItem of appState.cart) {
         const currentStock = Number(inventorySnapshot[cartItem.productId] || 0);
         if (currentStock < cartItem.quantity) {
-            showNotice('Inventory changed and the cart can no longer be fulfilled.', 'error');
+            showNotice('המלאי השתנה והעגלה לא יכולה להשלים עוד.', 'error');
             renderCurrentRoute('cart');
             return;
         }
@@ -838,7 +838,7 @@ function processMockPayment(provider) {
         createdAt: new Date().toISOString(),
     });
 
-    showNotice(`${provider} payment approved. Redirecting to locker control.`, 'success');
+    showNotice(`תשלום ${provider} אושר. הפנייה לשליטה על לוקר.`, 'success');
     navigateToRoute('locker');
 }
 
@@ -846,22 +846,22 @@ function renderLockerControlPage() {
     return `
         <section class="page-hero card">
             <div>
-                <span class="eyebrow">Locker Control</span>
-                <h1>Post-payment locker operation</h1>
-                <p>Use the ESP32 servo controls below to open and close the locker door after payment.</p>
+                <span class="eyebrow">שליטה על לוקר</span>
+                <h1>הפעלת לוקר לאחר תשלום</h1>
+                <p>השתמש בבקרות ה-ESP32 servo למטה כדי לפתוח ולסגור את דלת הלוקר לאחר התשלום.</p>
             </div>
             <div class="status-chip ${appState.lockerOpen ? 'status-open' : 'status-closed'}">
-                ${appState.lockerOpen ? 'Locker Open' : 'Locker Closed'}
+                ${appState.lockerOpen ? 'לוקר פתוח' : 'לוקר סגור'}
             </div>
         </section>
 
         <section class="card locker-card">
-            <p class="locker-description">API endpoint: ${escapeHtml(ESP32_BASE_URL)}/api/locker</p>
+            <p class="locker-description">נקודת קצה של API: ${escapeHtml(ESP32_BASE_URL)}/api/locker</p>
             <div class="locker-actions">
-                <button type="button" class="primary-button" data-action="locker-control" data-command="open">Open Locker</button>
-                <button type="button" class="secondary-button" data-action="locker-control" data-command="close">Close Locker</button>
+                <button type="button" class="primary-button" data-action="locker-control" data-command="open">פתח לוקר</button>
+                <button type="button" class="secondary-button" data-action="locker-control" data-command="close">סגור לוקר</button>
             </div>
-            <div class="locker-status" id="locker-status">${appState.lockerOpen ? 'Locker is currently open.' : 'Locker is currently closed.'}</div>
+            <div class="locker-status" id="locker-status">${appState.lockerOpen ? 'הלוקר פתוח כרגע.' : 'הלוקר סגור כרגע.'}</div>
         </section>
     `;
 }
@@ -873,9 +873,9 @@ function operateLockerFromCurrentPage(command) {
         sendLockerServoCommand('open');
         appState.lockerOpen = true;
         if (lockerStatus) {
-            lockerStatus.textContent = 'Locker is open. Place the item inside and close it when finished.';
+            lockerStatus.textContent = 'הלוקר פתוח. הנח את הפריט בתוכו וסגור כשתסיים.';
         }
-        showNotice('Locker opening command sent.', 'success');
+        showNotice('פקודת פתיחת הלוקר נשלחה.', 'success');
         renderCurrentRoute('locker');
         return;
     }
@@ -884,9 +884,9 @@ function operateLockerFromCurrentPage(command) {
         sendLockerServoCommand('close');
         appState.lockerOpen = false;
         if (lockerStatus) {
-            lockerStatus.textContent = 'Locker is closed and secured.';
+            lockerStatus.textContent = 'הלוקר סגור וחזוק.';
         }
-        showNotice('Locker closing command sent.', 'success');
+        showNotice('פקודת סגירת הלוקר נשלחה.', 'success');
         renderCurrentRoute('locker');
     }
 }
@@ -917,50 +917,50 @@ function renderReturnProductPage() {
     return `
         <section class="page-hero card">
             <div>
-                <span class="eyebrow">Return Product</span>
+                <span class="eyebrow">החזרת מוצר</span>
                 <h1>החזרת מוצר</h1>
-                <p>Fill in the borrower details, select the item, upload a mock image, and use the locker buttons to complete the return.</p>
+                <p>מלא את פרטי ההשאלה, בחר את הפריט, העלה תמונה דמה, והשתמש בלחצני הלוקר כדי להשלים את ההחזרה.</p>
             </div>
         </section>
 
         <section class="checkout-grid return-grid">
             <form class="card form-card" data-return-form>
-                <h2>Return Details</h2>
+                <h2>פרטי ההחזרה</h2>
                 <label class="field-group">
-                    <span>First Name</span>
+                    <span>שם פרטי</span>
                     <input type="text" class="text-input" name="returnFirstName" required />
                 </label>
                 <label class="field-group">
-                    <span>Last Name</span>
+                    <span>שם משפחה</span>
                     <input type="text" class="text-input" name="returnLastName" required />
                 </label>
                 <label class="field-group">
-                    <span>Returned Product</span>
+                    <span>מוצר הוחזר</span>
                     <select class="text-input" data-return-product-select>
                         ${PRODUCTS.map((product, index) => `<option value="${product.id}" ${index === 0 ? 'selected' : ''}>${escapeHtml(product.name)}</option>`).join('')}
                     </select>
                 </label>
                 <label class="field-group">
-                    <span>Upload Product Image</span>
+                    <span>העלה תמונת מוצר</span>
                     <input type="file" class="text-input file-input" accept="image/*" data-return-file-input />
-                    <small class="file-name" data-return-file-label>No file selected</small>
+                    <small class="file-name" data-return-file-label>לא נבחר קובץ</small>
                 </label>
                 <div class="payment-actions">
-                    <button type="button" class="primary-button" data-action="locker-control" data-command="open">Open Locker</button>
-                    <button type="button" class="secondary-button" data-action="locker-control" data-command="close">Close Locker</button>
+                    <button type="button" class="primary-button" data-action="locker-control" data-command="open">פתח לוקר</button>
+                    <button type="button" class="secondary-button" data-action="locker-control" data-command="close">סגור לוקר</button>
                 </div>
-                <div class="return-status" id="return-status">${escapeHtml(firstProduct.name)} is selected for return.</div>
+                <div class="return-status" id="return-status">${escapeHtml(firstProduct.name)} נבחר להחזרה.</div>
             </form>
 
             <aside class="card order-panel">
-                <h2>Return Impact</h2>
-                <p>Closing the locker will increment the selected product back into inventory stock.</p>
+                <h2>השפעת ההחזרה</h2>
+                <p>סגירת הלוקר תגדיל את המוצר שנבחר חזרה למלאי.</p>
                 <div class="summary-row">
-                    <span>Current stock for ${escapeHtml(firstProduct.name)}</span>
+                    <span>מלאי נוכחי עבור ${escapeHtml(firstProduct.name)}</span>
                     <strong data-return-stock-value>${getInventoryStock(firstProduct.id)}</strong>
                 </div>
                 <div class="summary-row">
-                    <span>Selected product</span>
+                    <span>מוצר שנבחר</span>
                     <strong data-return-product-name>${escapeHtml(firstProduct.name)}</strong>
                 </div>
             </aside>
@@ -1014,32 +1014,32 @@ function renderInventoryManagementPage() {
     return `
         <section class="page-hero card">
             <div>
-                <span class="eyebrow">Inventory Management</span>
-                <h1>Aguda Login</h1>
-                <p>This page is ready for future administration features and currently exposes the live stock state.</p>
+                <span class="eyebrow">ניהול מלאי</span>
+                <h1>כניסה אגודה</h1>
+                <p>דף זה מוכן לתכונות ניהול בעתיד וכרגע חושף את מצב המלאי החי.</p>
             </div>
         </section>
 
         <section class="card inventory-card">
             <div class="inventory-tabs-placeholder">
-                <div class="tab-pill is-selected">Statistics Dashboard</div>
-                <div class="tab-pill">Inventory Management</div>
-                <div class="tab-pill">Order Tracking</div>
+                <div class="tab-pill is-selected">לוח מחוונים של סטטיסטיקה</div>
+                <div class="tab-pill">ניהול מלאי</div>
+                <div class="tab-pill">עקיבה אחר הזמנות</div>
             </div>
 
-            <pre class="todo-code-block"><code>TODO: Build the three-tab inventory UI.
-- Statistics Dashboard
-- Inventory Management
-- Order Tracking</code></pre>
+            <pre class="todo-code-block"><code>TODO: בנה את ממשק הלוקים הת-שלושה.
+- לוח מחוונים של סטטיסטיקה
+- ניהול מלאי
+- עקיבה אחר הזמנות</code></pre>
 
             <div class="table-wrap">
                 <table class="inventory-table">
                     <thead>
                         <tr>
-                            <th>Product</th>
-                            <th>Type</th>
-                            <th>Stock</th>
-                            <th>Status</th>
+                            <th>מוצר</th>
+                            <th>סוג</th>
+                            <th>מלאי</th>
+                            <th>סטטוס</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1075,12 +1075,12 @@ function processReturnCompletionIfPossible() {
     const selectedFile = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
 
     if (!firstName || !lastName) {
-        showNotice('First Name and Last Name are required for a return.', 'error');
+        showNotice('שם פרטי ושם משפחה נדרשים להחזרה.', 'error');
         return null;
     }
 
     if (!selectedFile) {
-        showNotice('Please upload an image of the returned product.', 'error');
+        showNotice('אנא העלה תמונה של המוצר המוחזר.', 'error');
         return null;
     }
 
@@ -1098,7 +1098,7 @@ function finalizeReturn(product) {
     }
 
     incrementInventoryForReturn(product.id);
-    showNotice(`${product.name} was returned and added back to stock.`, 'success');
+    showNotice(`${product.name} הוחזר והוסף חזרה למלאי.`, 'success');
     renderCurrentRoute('return');
 }
 
@@ -1108,9 +1108,9 @@ function maybeHandleReturnLockerCommand(command) {
         appState.lockerOpen = true;
         const returnStatus = document.getElementById('return-status');
         if (returnStatus) {
-            returnStatus.textContent = 'Locker is open. Place the returned item inside and close the locker when ready.';
+            returnStatus.textContent = 'הלוקר פתוח. הנח את הפריט המוחזר בתוכו וסגור את הלוקר כשתהיה מוכן.';
         }
-        showNotice('Return locker opened.', 'success');
+        showNotice('לוקר ההחזרה נפתח.', 'success');
         return true;
     }
 
@@ -1200,7 +1200,7 @@ function processCheckoutPayment(provider) {
     const inventorySnapshot = { ...appState.inventory };
     for (const cartItem of appState.cart) {
         if ((inventorySnapshot[cartItem.productId] || 0) < cartItem.quantity) {
-            showNotice('One or more cart items are no longer available.', 'error');
+            showNotice('פריט אחד או יותר מפריטי העגלה אינו זמין עוד.', 'error');
             renderCurrentRoute('cart');
             return;
         }
@@ -1218,7 +1218,7 @@ function processCheckoutPayment(provider) {
     });
 
     clearCart();
-    showNotice(`${provider} payment completed successfully.`, 'success');
+    showNotice(`תשלום ${provider} הושלם בהצלחה.`, 'success');
     navigateToRoute('locker');
 }
 
@@ -1288,7 +1288,7 @@ function handleReturnCloseCommand() {
     appState.lockerOpen = false;
     incrementInventoryForReturn(returnData.product.id);
     saveInventoryState();
-    showNotice(`${returnData.product.name} was returned successfully.`, 'success');
+    showNotice(`${returnData.product.name} הוחזר בהצלחה.`, 'success');
     renderCurrentRoute('return');
 }
 
