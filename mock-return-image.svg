@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="240" viewBox="0 0 400 240">
+  <rect width="400" height="240" rx="24" fill="#f4f1ea"/>
+  <rect x="36" y="36" width="328" height="168" rx="18" fill="#ffffff" stroke="#ddd7cd"/>
+  <text x="200" y="114" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="#2d6f73">Returned Product</text>
+  <text x="200" y="146" font-family="Arial, sans-serif" font-size="16" text-anchor="middle" fill="#66737f">Mock upload image</text>
+</svg>
