@@ -214,16 +214,16 @@ function mountAppShell() {
 
                     <div class="footer-qa-list">
                         <details class="footer-qa-item">
+                            <summary>איך שוכרים מוצר?</summary>
+                            <p>נכנסים לקטלוג, בוחרים פריט, מוסיפים לסל וממשיכים לתשלום.</p>
+                        </details>
+                        <details class="footer-qa-item">
                             <summary>איך מחזירים מוצר?</summary>
-                            <p>נכנסים לעמוד "החזרת מוצר", בוחרים פריט, מעלים תמונה וסוגרים את הלוקר.</p>
+                            <p>נכנסים לעמוד "החזרת מוצר", בוחרים את הפריט, מעלים תמונה ומסיימים את ההחזרה בלוקר.</p>
                         </details>
                         <details class="footer-qa-item">
-                            <summary>איך רואים מה מושכר כרגע?</summary>
-                            <p>ב"כניסה אגודה" בוחרים dropdown של "השכרה כרגע" ורואים את כל הפריטים הפעילים והזמן שנותר.</p>
-                        </details>
-                        <details class="footer-qa-item">
-                            <summary>איך עורכים מלאי?</summary>
-                            <p>ב"כניסה אגודה" בוחרים dropdown של "ניהול מלאי" ואז אפשר לערוך, להוסיף או להסיר מוצרים.</p>
+                            <summary>איך משלמים?</summary>
+                            <p>מגיעים לעמוד התשלום, ממלאים שם פרטי ומשפחה ובוחרים אמצעי תשלום מדומה.</p>
                         </details>
                     </div>
                 </section>
