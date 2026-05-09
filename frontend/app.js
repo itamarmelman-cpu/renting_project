@@ -202,6 +202,31 @@ function mountAppShell() {
                         <p>ממשק משתמש מינימלי, מצב מלאי קבוע, וניסיונות חומרה מדומים ללוקר ESP32.</p>
                     </section>
                 </div>
+
+                <section class="footer-qa card" aria-label="שאלות ותשובות">
+                    <div class="footer-qa-header">
+                        <div>
+                            <span class="eyebrow">Q&A</span>
+                            <h3>שאלות ותשובות מהירות</h3>
+                        </div>
+                        <p>תמיד זמין בתחתית כל דף.</p>
+                    </div>
+
+                    <div class="footer-qa-list">
+                        <details class="footer-qa-item">
+                            <summary>איך מחזירים מוצר?</summary>
+                            <p>נכנסים לעמוד "החזרת מוצר", בוחרים פריט, מעלים תמונה וסוגרים את הלוקר.</p>
+                        </details>
+                        <details class="footer-qa-item">
+                            <summary>איך רואים מה מושכר כרגע?</summary>
+                            <p>ב"כניסה אגודה" בוחרים dropdown של "השכרה כרגע" ורואים את כל הפריטים הפעילים והזמן שנותר.</p>
+                        </details>
+                        <details class="footer-qa-item">
+                            <summary>איך עורכים מלאי?</summary>
+                            <p>ב"כניסה אגודה" בוחרים dropdown של "ניהול מלאי" ואז אפשר לערוך, להוסיף או להסיר מוצרים.</p>
+                        </details>
+                    </div>
+                </section>
             </footer>
         </div>
     `;
