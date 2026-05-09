@@ -133,6 +133,7 @@ const appState = {
 
 let appShellInitialized = false;
 let activeNoticeTimeoutId = null;
+let inventoryDashboardRequestId = 0;
 
 initializeApp();
 
@@ -382,6 +383,7 @@ function renderCurrentRoute(route) {
         main.innerHTML = renderReturnProductPage();
     } else if (safeRoute === 'inventory') {
         main.innerHTML = renderInventoryManagementPage();
+        void loadInventoryDashboardData();
     }
 
     syncHeaderState();
@@ -1065,7 +1067,43 @@ function renderInventoryManagementPage() {
             <div>
                 <span class="eyebrow">ניהול מלאי</span>
                 <h1>כניסה אגודה</h1>
-                <p>Manage inventory: edit stock levels, add new products, or remove items.</p>
+                <p>סטטיסטיקות השכרה ומכירה, יחד עם ניהול המלאי והפריטים המושכרים כרגע.</p>
+            </div>
+        </section>
+
+        <section class="inventory-stats-grid" aria-live="polite">
+            <article class="card inventory-stat-card">
+                <span class="inventory-stat-label">השכרות פעילות</span>
+                <strong id="inventory-active-rentals">--</strong>
+                <small>פריטי השכרה שעדיין לא הסתיימו</small>
+            </article>
+            <article class="card inventory-stat-card">
+                <span class="inventory-stat-label">יחידות מושכרות כרגע</span>
+                <strong id="inventory-rented-units">--</strong>
+                <small>כמות כוללת של מוצרים בהשכרה</small>
+            </article>
+            <article class="card inventory-stat-card">
+                <span class="inventory-stat-label">פריטי מכירה שנמכרו</span>
+                <strong id="inventory-sold-units">--</strong>
+                <small>מוצרים מסוג רכישה שכבר נמכרו</small>
+            </article>
+            <article class="card inventory-stat-card">
+                <span class="inventory-stat-label">הכנסות ממכירה</span>
+                <strong id="inventory-sales-revenue">--</strong>
+                <small>על בסיס פריטי הרכישה שהוזמנו</small>
+            </article>
+        </section>
+
+        <section class="card inventory-rentals-card">
+            <div class="inventory-section-header">
+                <div>
+                    <span class="eyebrow">השכרה כרגע</span>
+                    <h2>אילו פריטים מושכרים ולאיזו תקופה</h2>
+                </div>
+                <span class="inventory-section-note" id="inventory-rentals-note">טוען נתונים...</span>
+            </div>
+            <div id="inventory-active-rentals-list" class="inventory-rentals-list">
+                <div class="inventory-empty-state">טוען נתוני השכרה...</div>
             </div>
         </section>
 
@@ -1192,6 +1230,165 @@ function renderInventoryManagementPage() {
             }
         </style>
     `;
+}
+
+async function loadInventoryDashboardData() {
+    const requestId = ++inventoryDashboardRequestId;
+    const rentalsList = document.getElementById('inventory-active-rentals-list');
+    const rentalsNote = document.getElementById('inventory-rentals-note');
+
+    try {
+        const response = await fetch('/api/orders');
+        if (!response.ok) {
+            throw new Error(`Failed to load orders (${response.status})`);
+        }
+
+        const orders = await response.json();
+        if (requestId !== inventoryDashboardRequestId) {
+            return;
+        }
+
+        const summary = buildInventoryDashboardSummary(orders);
+        updateInventoryDashboard(summary);
+        renderInventoryRentalsList(summary.activeRentals);
+
+        if (rentalsNote) {
+            rentalsNote.textContent = summary.activeRentals.length
+                ? `נמצאו ${summary.activeRentals.length} פריטי השכרה פעילים`
+                : 'אין כרגע פריטים מושכרים';
+        }
+    } catch (error) {
+        if (requestId !== inventoryDashboardRequestId) {
+            return;
+        }
+
+        if (rentalsList) {
+            rentalsList.innerHTML = '<div class="inventory-empty-state">לא ניתן לטעון את נתוני ההשכרה כרגע.</div>';
+        }
+        if (rentalsNote) {
+            rentalsNote.textContent = 'שגיאה בטעינת נתונים';
+        }
+    }
+}
+
+function buildInventoryDashboardSummary(orders) {
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+    const activeRentals = [];
+    let soldUnits = 0;
+    let salesRevenue = 0;
+    let rentedUnits = 0;
+
+    orders.forEach((order) => {
+        (order.items || []).forEach((item) => {
+            const product = getProductById(item.productId);
+            if (!product) {
+                return;
+            }
+
+            const quantity = Number(item.quantity || 1);
+            const rentDays = Number(item.rentDays || 1);
+
+            if (product.type === 'rent') {
+                const startedAt = new Date(order.createdAt || Date.now()).getTime();
+                const dueAt = startedAt + (rentDays * dayMs);
+                const remainingMs = dueAt - now;
+
+                if (remainingMs > 0) {
+                    const remainingDays = Math.max(1, Math.ceil(remainingMs / dayMs));
+                    rentedUnits += quantity;
+                    activeRentals.push({
+                        orderId: order.id,
+                        productId: item.productId,
+                        productName: product.name,
+                        quantity,
+                        rentDays,
+                        customerName: order.customerName || 'לא צוין',
+                        startedAt: order.createdAt || null,
+                        dueAt: new Date(dueAt).toISOString(),
+                        remainingDays,
+                    });
+                }
+                return;
+            }
+
+            soldUnits += quantity;
+            salesRevenue += product.price * quantity;
+        });
+    });
+
+    return {
+        activeRentals,
+        rentedUnits,
+        soldUnits,
+        salesRevenue,
+    };
+}
+
+function updateInventoryDashboard(summary) {
+    const activeRentalsValue = document.getElementById('inventory-active-rentals');
+    const rentedUnitsValue = document.getElementById('inventory-rented-units');
+    const soldUnitsValue = document.getElementById('inventory-sold-units');
+    const salesRevenueValue = document.getElementById('inventory-sales-revenue');
+
+    if (activeRentalsValue) {
+        activeRentalsValue.textContent = String(summary.activeRentals.length);
+    }
+
+    if (rentedUnitsValue) {
+        rentedUnitsValue.textContent = String(summary.rentedUnits);
+    }
+
+    if (soldUnitsValue) {
+        soldUnitsValue.textContent = String(summary.soldUnits);
+    }
+
+    if (salesRevenueValue) {
+        salesRevenueValue.textContent = `${summary.salesRevenue} ₪`;
+    }
+}
+
+function renderInventoryRentalsList(activeRentals) {
+    const rentalsList = document.getElementById('inventory-active-rentals-list');
+    if (!rentalsList) {
+        return;
+    }
+
+    if (!activeRentals.length) {
+        rentalsList.innerHTML = '<div class="inventory-empty-state">אין כרגע פריטים מושכרים.</div>';
+        return;
+    }
+
+    rentalsList.innerHTML = `
+        <div class="inventory-rentals-table">
+            ${activeRentals.map((rental) => `
+                <article class="inventory-rental-row">
+                    <div class="inventory-rental-main">
+                        <strong>${escapeHtml(rental.productName)}</strong>
+                        <span>כמות: ${rental.quantity} · לקוח: ${escapeHtml(rental.customerName)}</span>
+                    </div>
+                    <div class="inventory-rental-meta">
+                        <span>תקופה: ${rental.rentDays} ימים</span>
+                        <span>נותרו: ${rental.remainingDays} ימים</span>
+                        <span>מועד סיום: ${formatDate(rental.dueAt)}</span>
+                    </div>
+                </article>
+            `).join('')}
+        </div>
+    `;
+}
+
+function formatDate(value) {
+    if (!value) {
+        return '-';
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return '-';
+    }
+
+    return date.toLocaleDateString('he-IL');
 }
 
 function escapeHtml(value) {
@@ -1576,7 +1773,7 @@ function handleAddProductSubmit() {
 }
 
 function removeProduct(productId) {
-    const product = PRODUCTS.find(p => p.id === productId);
+    const product = PRODUCTS.find((p) => p.id === productId);
     if (!product) {
         showNotice('Product not found', 'error');
         return;
@@ -1593,8 +1790,8 @@ function removeProduct(productId) {
     saveStoredJson(STORAGE_KEYS.inventory, appState.inventory);
 
     showNotice(`🗑️ Product "${product.name}" removed from inventory`, 'success');
-    }
     renderCurrentRoute('inventory');
+}
 
 function finalizeInventorySeed() {
     appState.inventory = ensureInventoryShape(appState.inventory);

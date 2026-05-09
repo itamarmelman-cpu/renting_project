@@ -570,6 +570,102 @@ button {
     font-weight: 700;
 }
 
+.inventory-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.inventory-stat-card,
+.inventory-rentals-card {
+    padding: 20px 22px;
+}
+
+.inventory-stat-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.inventory-stat-label,
+.inventory-section-note {
+    color: var(--muted);
+    font-size: 0.92rem;
+}
+
+.inventory-stat-card strong {
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.inventory-stat-card small {
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+.inventory-rentals-card {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.inventory-section-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.inventory-section-header h2 {
+    margin: 6px 0 0;
+}
+
+.inventory-rentals-list,
+.inventory-rentals-table {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.inventory-rental-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    border: 1px solid var(--border);
+    background: var(--surface-soft);
+    border-radius: 18px;
+    padding: 14px 16px;
+}
+
+.inventory-rental-main,
+.inventory-rental-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.inventory-rental-main strong {
+    font-size: 1.05rem;
+}
+
+.inventory-rental-main span,
+.inventory-rental-meta span {
+    color: var(--muted);
+    line-height: 1.5;
+}
+
+.inventory-empty-state {
+    padding: 18px;
+    border-radius: 16px;
+    background: var(--surface-soft);
+    color: var(--muted);
+    text-align: center;
+}
+
 .stock-pill.stock-low {
     background: rgba(180, 83, 9, 0.12);
     border-color: rgba(180, 83, 9, 0.18);
@@ -636,7 +732,8 @@ button {
     .catalog-grid,
     .cart-layout,
     .checkout-grid,
-    .footer-grid {
+    .footer-grid,
+    .inventory-stats-grid {
         grid-template-columns: 1fr;
     }
 
