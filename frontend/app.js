@@ -148,6 +148,7 @@ function initializeApp() {
     // On first load, default to catalog
     const route = !location.hash ? 'catalog' : getRouteFromHash();
     renderCurrentRoute(route);
+    updateFooterQa(route);
 }
 
 function mountAppShell() {
@@ -212,20 +213,7 @@ function mountAppShell() {
                         <p>תמיד זמין בתחתית כל דף.</p>
                     </div>
 
-                    <div class="footer-qa-list">
-                        <details class="footer-qa-item">
-                            <summary>איך שוכרים מוצר?</summary>
-                            <p>נכנסים לקטלוג, בוחרים פריט, מוסיפים לסל וממשיכים לתשלום.</p>
-                        </details>
-                        <details class="footer-qa-item">
-                            <summary>איך מחזירים מוצר?</summary>
-                            <p>נכנסים לעמוד "החזרת מוצר", בוחרים את הפריט, מעלים תמונה ומסיימים את ההחזרה בלוקר.</p>
-                        </details>
-                        <details class="footer-qa-item">
-                            <summary>איך משלמים?</summary>
-                            <p>מגיעים לעמוד התשלום, ממלאים שם פרטי ומשפחה ובוחרים אמצעי תשלום מדומה.</p>
-                        </details>
-                    </div>
+                    <div class="footer-qa-list" id="footer-qa-list"></div>
                 </section>
             </footer>
         </div>
@@ -422,6 +410,47 @@ function renderCurrentRoute(route) {
     }
 
     syncHeaderState();
+    updateFooterQa(safeRoute);
+}
+
+function updateFooterQa(route) {
+    const footerQaList = document.getElementById('footer-qa-list');
+    if (!footerQaList) {
+        return;
+    }
+
+    if (route === 'inventory') {
+        footerQaList.innerHTML = `
+            <details class="footer-qa-item">
+                <summary>איך רואים מה במלאי?</summary>
+                <p>בכניסת אגודה בוחרים "ניהול מלאי" ומקבלים טבלה מלאה של כל המוצרים, הכמות והסטטוס שלהם.</p>
+            </details>
+            <details class="footer-qa-item">
+                <summary>איך בודקים השכרות פעילות?</summary>
+                <p>בכניסת אגודה בוחרים "השכרה כרגע" ורואים אילו פריטים מושכרים, לכמה זמן ולכמה ימים נשארו.</p>
+            </details>
+            <details class="footer-qa-item">
+                <summary>איך מעדכנים מלאי?</summary>
+                <p>בכניסת אגודה בוחרים "ניהול מלאי" ואז אפשר לערוך מלאי, להוסיף מוצר חדש או להסיר מוצר קיים.</p>
+            </details>
+        `;
+        return;
+    }
+
+    footerQaList.innerHTML = `
+        <details class="footer-qa-item">
+            <summary>איך שוכרים מוצר?</summary>
+            <p>נכנסים לקטלוג, בוחרים פריט, מוסיפים לסל וממשיכים לתשלום.</p>
+        </details>
+        <details class="footer-qa-item">
+            <summary>איך מחזירים מוצר?</summary>
+            <p>נכנסים לעמוד "החזרת מוצר", בוחרים את הפריט, מעלים תמונה ומסיימים את ההחזרה בלוקר.</p>
+        </details>
+        <details class="footer-qa-item">
+            <summary>איך משלמים?</summary>
+            <p>מגיעים לעמוד התשלום, ממלאים שם פרטי ומשפחה ובוחרים אמצעי תשלום מדומה.</p>
+        </details>
+    `;
 }
 
 function updateActiveNavigation(route) {
