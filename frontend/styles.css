@@ -99,6 +99,23 @@ button {
     box-shadow: var(--shadow);
 }
 
+.brand-mark-image {
+    width: 92px;
+    height: auto;
+    aspect-ratio: auto;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+}
+
+.brand-logo-image {
+    width: 92px;
+    height: auto;
+    object-fit: cover;
+    display: block;
+}
+
 .brand-copy {
     display: flex;
     flex-direction: column;

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520" role="img" aria-label="Aguda2Go logo">
+  <defs>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#000000" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#softShadow)">
+    <circle cx="356" cy="138" r="84" fill="#f26674"/>
+    <circle cx="450" cy="138" r="84" fill="#ffd86b"/>
+    <circle cx="544" cy="138" r="84" fill="#a8dce3"/>
+    <path d="M378 305c0-44 34-81 77-86v-44h-52v-54h127v54h-31v44c43 5 77 42 77 86v112h-60V313c0-18-15-33-33-33s-33 15-33 33v104h-72V305Z" fill="#ffffff"/>
+    <path d="M589 214c30 42 47 78 52 109 3 24-3 44-20 61-15 15-35 23-59 23-31 0-56-11-76-33l39-40c9 11 20 17 34 17 12 0 21-4 26-12 5-8 5-18 1-31-5-17-18-43-39-78l42-16Z" fill="#ffffff" opacity="0.96"/>
+  </g>
+
+  <g transform="translate(450 448)" fill="#ffffff" text-anchor="middle">
+    <text x="0" y="0" direction="rtl" unicode-bidi="plaintext" font-family="Arial, 'Helvetica Neue', sans-serif" font-size="96" font-weight="800">אגודה</text>
+    <text x="0" y="48" font-family="Arial, 'Helvetica Neue', sans-serif" font-size="34" font-weight="700">אגודת הסטודנטים והסטודנטיות של האקדמית ת״ל אביב-יפו</text>
+  </g>
+</svg>

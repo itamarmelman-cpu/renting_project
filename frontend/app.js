@@ -161,7 +161,9 @@ function mountAppShell() {
         <div class="app-shell">
             <header class="app-header">
                 <button class="brand-button" type="button" data-route-link="catalog" aria-label="עבור לקטלוג">
-                    <span class="brand-mark">A2G</span>
+                    <span class="brand-mark brand-mark-image">
+                        <img src="catalog/logo-pics/aguda-logo.svg" alt="Aguda2Go logo" class="brand-logo-image" />
+                    </span>
                     <span class="brand-copy">
                         <strong>Aguda2Go</strong>
                         <span>השכרת לוקר חכמה</span>
