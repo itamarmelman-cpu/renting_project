@@ -1,7 +1,7 @@
 {
-  "name": "aguda2go-server",
+  "name": "aguGo-server",
   "version": "0.1.0",
-  "description": "Lightweight API server for Aguda2Go local development",
+  "description": "Lightweight API server for AguGo local development",
   "main": "backend/server.js",
   "scripts": {
     "start": "node backend/server.js"

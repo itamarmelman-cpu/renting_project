@@ -1,6 +1,6 @@
-# Aguda2Go Locker System
+# AguGo Locker System
 
-Aguda2Go is a smart locker rental and return system for student equipment. The project combines a browser-based frontend, a Node.js/Express backend with SQLite, and an ESP32 MicroPython locker controller.
+AguGo is a smart locker rental and return system for student equipment. The project combines a browser-based frontend, a Node.js/Express backend with SQLite, and an ESP32 MicroPython locker controller.
 
 ## Project Structure
 

@@ -162,10 +162,10 @@ function mountAppShell() {
             <header class="app-header">
                 <button class="brand-button" type="button" data-route-link="catalog" aria-label="עבור לקטלוג">
                     <span class="brand-mark brand-mark-image">
-                        <img src="catalog/logo-pics/aguda-logo.svg" alt="Aguda2Go logo" class="brand-logo-image" />
+                        <img src="catalog/logo-pics/aguda-logo.svg" alt="AguGo logo" class="brand-logo-image" />
                     </span>
                     <span class="brand-copy">
-                        <strong>Aguda2Go</strong>
+                        <strong>AguGo</strong>
                         <span>השכרת לוקר חכמה</span>
                     </span>
                 </button>
@@ -188,7 +188,7 @@ function mountAppShell() {
             <footer class="app-footer">
                 <div class="footer-grid">
                     <section>
-                        <h2>Aguda2Go</h2>
+                        <h2>AguGo</h2>
                         <p>מערכת חכמה להשכרה, החזרה ושליטה על לוקרים לציוד סטודנטיאלי.</p>
                     </section>
                     <section>
