@@ -134,6 +134,8 @@ const appState = {
 let appShellInitialized = false;
 let activeNoticeTimeoutId = null;
 let inventoryDashboardRequestId = 0;
+let inventoryDashboardSummary = null;
+let inventoryDashboardSection = 'summary';
 
 initializeApp();
 
@@ -288,6 +290,14 @@ function attachGlobalEventHandlers() {
             if (confirm(`Remove "${productName}" from inventory?`)) {
                 removeProduct(productId);
             }
+            return;
+        }
+    });
+
+    appMain.addEventListener('change', (event) => {
+        if (event.target.matches('#inventory-section-select')) {
+            inventoryDashboardSection = event.target.value || 'summary';
+            renderInventoryDashboardView();
             return;
         }
     });
@@ -1044,24 +1054,6 @@ function incrementInventoryForReturn(productId) {
 }
 
 function renderInventoryManagementPage() {
-    const inventoryRows = PRODUCTS.map((product) => {
-        const stock = getInventoryStock(product.id);
-        const statusClass = stock <= 2 ? 'stock-low' : 'stock-ok';
-        const statusText = stock <= 2 ? 'Low' : 'Healthy';
-        return `
-            <tr data-product-id="${product.id}">
-                <td>${escapeHtml(product.name)}</td>
-                <td>${escapeHtml(product.categoryLabel)}</td>
-                <td>${stock}</td>
-                <td><span class="stock-pill ${statusClass}">${statusText}</span></td>
-                <td>
-                    <button class="action-button edit-stock-btn" data-product-id="${product.id}" data-product-name="${escapeHtml(product.name)}">✏️ Edit</button>
-                    <button class="action-button remove-product-btn" data-product-id="${product.id}" data-product-name="${escapeHtml(product.name)}">❌ Remove</button>
-                </td>
-            </tr>
-        `;
-    }).join('');
-
     return `
         <section class="page-hero card">
             <div>
@@ -1071,118 +1063,24 @@ function renderInventoryManagementPage() {
             </div>
         </section>
 
-        <section class="inventory-stats-grid" aria-live="polite">
-            <article class="card inventory-stat-card">
-                <span class="inventory-stat-label">השכרות פעילות</span>
-                <strong id="inventory-active-rentals">--</strong>
-                <small>פריטי השכרה שעדיין לא הסתיימו</small>
-            </article>
-            <article class="card inventory-stat-card">
-                <span class="inventory-stat-label">יחידות מושכרות כרגע</span>
-                <strong id="inventory-rented-units">--</strong>
-                <small>כמות כוללת של מוצרים בהשכרה</small>
-            </article>
-            <article class="card inventory-stat-card">
-                <span class="inventory-stat-label">פריטי מכירה שנמכרו</span>
-                <strong id="inventory-sold-units">--</strong>
-                <small>מוצרים מסוג רכישה שכבר נמכרו</small>
-            </article>
-            <article class="card inventory-stat-card">
-                <span class="inventory-stat-label">הכנסות ממכירה</span>
-                <strong id="inventory-sales-revenue">--</strong>
-                <small>על בסיס פריטי הרכישה שהוזמנו</small>
-            </article>
-        </section>
-
-        <section class="card inventory-rentals-card">
+        <section class="card inventory-dashboard-shell">
             <div class="inventory-section-header">
                 <div>
-                    <span class="eyebrow">השכרה כרגע</span>
-                    <h2>אילו פריטים מושכרים ולאיזו תקופה</h2>
+                    <span class="eyebrow">בחר קטגוריה</span>
+                    <h2>תצוגה אחת בכל פעם</h2>
                 </div>
-                <span class="inventory-section-note" id="inventory-rentals-note">טוען נתונים...</span>
+                <label class="inventory-section-selector">
+                    <span class="inventory-section-note">קטגוריה</span>
+                    <select id="inventory-section-select" class="text-input inventory-view-select">
+                        <option value="summary">סטטיסטיקות</option>
+                        <option value="rentals">השכרה כרגע</option>
+                        <option value="inventory">ניהול מלאי</option>
+                    </select>
+                </label>
             </div>
-            <div id="inventory-active-rentals-list" class="inventory-rentals-list">
-                <div class="inventory-empty-state">טוען נתוני השכרה...</div>
-            </div>
+
+            <div id="inventory-dashboard-panel" class="inventory-dashboard-panel"></div>
         </section>
-
-        <section class="card inventory-card">
-            <div style="display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;">
-                <button class="primary-button" id="add-product-btn">➕ Add New Product</button>
-            </div>
-
-            <div class="table-wrap">
-                <table class="inventory-table">
-                    <thead>
-                        <tr>
-                            <th>מוצר</th>
-                            <th>סוג</th>
-                            <th>מלאי</th>
-                            <th>סטטוס</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${inventoryRows}
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- Edit Stock Modal -->
-        <div id="edit-stock-modal" class="modal" style="display: none;">
-            <div class="modal-content">
-                <h2>Edit Stock Level</h2>
-                <form id="edit-stock-form">
-                    <div>
-                        <label>Product Name</label>
-                        <input type="text" id="edit-product-name" readonly style="background: #f0f0f0;">
-                    </div>
-                    <div>
-                        <label>Stock Quantity</label>
-                        <input type="number" id="edit-stock-input" min="0" required>
-                    </div>
-                    <div style="display: flex; gap: 10px; margin-top: 20px;">
-                        <button type="submit" class="primary-button">Save</button>
-                        <button type="button" class="secondary-button" onclick="closeEditModal()">Cancel</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Add Product Modal -->
-        <div id="add-product-modal" class="modal" style="display: none;">
-            <div class="modal-content">
-                <h2>Add New Product</h2>
-                <form id="add-product-form">
-                    <div>
-                        <label>Product Name</label>
-                        <input type="text" id="new-product-name" required>
-                    </div>
-                    <div>
-                        <label>Type</label>
-                        <select id="new-product-type" required>
-                            <option value="">Select...</option>
-                            <option value="rent">Rental (השכרה)</option>
-                            <option value="buy">Purchase (רכישה)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Initial Stock</label>
-                        <input type="number" id="new-product-stock" min="0" value="0" required>
-                    </div>
-                    <div>
-                        <label>Price (₪)</label>
-                        <input type="number" id="new-product-price" min="0" step="0.01" value="0" required>
-                    </div>
-                    <div style="display: flex; gap: 10px; margin-top: 20px;">
-                        <button type="submit" class="primary-button">Add Product</button>
-                        <button type="button" class="secondary-button" onclick="closeAddModal()">Cancel</button>
-                    </div>
-                </form>
-            </div>
-        </div>
 
         <style>
             .action-button {
@@ -1249,25 +1147,15 @@ async function loadInventoryDashboardData() {
         }
 
         const summary = buildInventoryDashboardSummary(orders);
-        updateInventoryDashboard(summary);
-        renderInventoryRentalsList(summary.activeRentals);
-
-        if (rentalsNote) {
-            rentalsNote.textContent = summary.activeRentals.length
-                ? `נמצאו ${summary.activeRentals.length} פריטי השכרה פעילים`
-                : 'אין כרגע פריטים מושכרים';
-        }
+        inventoryDashboardSummary = summary;
+        renderInventoryDashboardView();
     } catch (error) {
         if (requestId !== inventoryDashboardRequestId) {
             return;
         }
 
-        if (rentalsList) {
-            rentalsList.innerHTML = '<div class="inventory-empty-state">לא ניתן לטעון את נתוני ההשכרה כרגע.</div>';
-        }
-        if (rentalsNote) {
-            rentalsNote.textContent = 'שגיאה בטעינת נתונים';
-        }
+        inventoryDashboardSummary = null;
+        renderInventoryDashboardView(true);
     }
 }
 
@@ -1346,6 +1234,178 @@ function updateInventoryDashboard(summary) {
     if (salesRevenueValue) {
         salesRevenueValue.textContent = `${summary.salesRevenue} ₪`;
     }
+}
+
+function renderInventoryDashboardView(isError = false) {
+    const panel = document.getElementById('inventory-dashboard-panel');
+    const select = document.getElementById('inventory-section-select');
+
+    if (!panel || !select) {
+        return;
+    }
+
+    select.value = inventoryDashboardSection;
+    const section = inventoryDashboardSection || 'summary';
+    panel.innerHTML = renderInventoryDashboardPanel(section, inventoryDashboardSummary, isError);
+}
+
+function renderInventoryDashboardPanel(section, summary, isError = false) {
+    if (section === 'rentals') {
+        const rentals = summary?.activeRentals || [];
+        return `
+            <div class="inventory-section-header inventory-panel-header">
+                <div>
+                    <span class="eyebrow">השכרה כרגע</span>
+                    <h3>אילו פריטים מושכרים ולאיזו תקופה</h3>
+                </div>
+                <span class="inventory-section-note">${isError ? 'שגיאה בטעינת נתונים' : rentals.length ? `נמצאו ${rentals.length} פריטי השכרה פעילים` : 'אין כרגע פריטים מושכרים'}</span>
+            </div>
+            <div class="inventory-rentals-list">
+                ${rentals.length ? rentals.map((rental) => `
+                    <article class="inventory-rental-row">
+                        <div class="inventory-rental-main">
+                            <strong>${escapeHtml(rental.productName)}</strong>
+                            <span>כמות: ${rental.quantity} · לקוח: ${escapeHtml(rental.customerName)}</span>
+                        </div>
+                        <div class="inventory-rental-meta">
+                            <span>תקופה: ${rental.rentDays} ימים</span>
+                            <span>נותרו: ${rental.remainingDays} ימים</span>
+                            <span>מועד סיום: ${formatDate(rental.dueAt)}</span>
+                        </div>
+                    </article>
+                `).join('') : `<div class="inventory-empty-state">${isError ? 'לא ניתן לטעון את נתוני ההשכרה כרגע.' : 'אין כרגע פריטים מושכרים.'}</div>`}
+            </div>
+        `;
+    }
+
+    if (section === 'inventory') {
+        const inventoryRows = PRODUCTS.map((product) => {
+            const stock = getInventoryStock(product.id);
+            const statusClass = stock <= 2 ? 'stock-low' : 'stock-ok';
+            const statusText = stock <= 2 ? 'Low' : 'Healthy';
+            return `
+                <tr data-product-id="${product.id}">
+                    <td>${escapeHtml(product.name)}</td>
+                    <td>${escapeHtml(product.categoryLabel)}</td>
+                    <td>${stock}</td>
+                    <td><span class="stock-pill ${statusClass}">${statusText}</span></td>
+                    <td>
+                        <button class="action-button edit-stock-btn" data-product-id="${product.id}" data-product-name="${escapeHtml(product.name)}">✏️ Edit</button>
+                        <button class="action-button remove-product-btn" data-product-id="${product.id}" data-product-name="${escapeHtml(product.name)}">❌ Remove</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        return `
+            <div class="inventory-section-header inventory-panel-header">
+                <div>
+                    <span class="eyebrow">ניהול מלאי</span>
+                    <h3>עריכה, הוספה והסרה</h3>
+                </div>
+                <button class="primary-button" id="add-product-btn">➕ Add New Product</button>
+            </div>
+
+            <div class="table-wrap">
+                <table class="inventory-table">
+                    <thead>
+                        <tr>
+                            <th>מוצר</th>
+                            <th>סוג</th>
+                            <th>מלאי</th>
+                            <th>סטטוס</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${inventoryRows}
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="edit-stock-modal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <h2>Edit Stock Level</h2>
+                    <form id="edit-stock-form">
+                        <div>
+                            <label>Product Name</label>
+                            <input type="text" id="edit-product-name" readonly style="background: #f0f0f0;">
+                        </div>
+                        <div>
+                            <label>Stock Quantity</label>
+                            <input type="number" id="edit-stock-input" min="0" required>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 20px;">
+                            <button type="submit" class="primary-button">Save</button>
+                            <button type="button" class="secondary-button" onclick="closeEditModal()">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div id="add-product-modal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <h2>Add New Product</h2>
+                    <form id="add-product-form">
+                        <div>
+                            <label>Product Name</label>
+                            <input type="text" id="new-product-name" required>
+                        </div>
+                        <div>
+                            <label>Type</label>
+                            <select id="new-product-type" required>
+                                <option value="">Select...</option>
+                                <option value="rent">Rental (השכרה)</option>
+                                <option value="buy">Purchase (רכישה)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Initial Stock</label>
+                            <input type="number" id="new-product-stock" min="0" value="0" required>
+                        </div>
+                        <div>
+                            <label>Price (₪)</label>
+                            <input type="number" id="new-product-price" min="0" step="0.01" value="0" required>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 20px;">
+                            <button type="submit" class="primary-button">Add Product</button>
+                            <button type="button" class="secondary-button" onclick="closeAddModal()">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+    }
+
+    const activeRentals = summary?.activeRentals || [];
+    const rentedUnits = summary?.rentedUnits ?? 0;
+    const soldUnits = summary?.soldUnits ?? 0;
+    const salesRevenue = summary?.salesRevenue ?? 0;
+
+    return `
+        <section class="inventory-stats-grid" aria-live="polite">
+            <article class="card inventory-stat-card">
+                <span class="inventory-stat-label">השכרות פעילות</span>
+                <strong>${activeRentals.length}</strong>
+                <small>פריטי השכרה שעדיין לא הסתיימו</small>
+            </article>
+            <article class="card inventory-stat-card">
+                <span class="inventory-stat-label">יחידות מושכרות כרגע</span>
+                <strong>${rentedUnits}</strong>
+                <small>כמות כוללת של מוצרים בהשכרה</small>
+            </article>
+            <article class="card inventory-stat-card">
+                <span class="inventory-stat-label">פריטי מכירה שנמכרו</span>
+                <strong>${soldUnits}</strong>
+                <small>מוצרים מסוג רכישה שכבר נמכרו</small>
+            </article>
+            <article class="card inventory-stat-card">
+                <span class="inventory-stat-label">הכנסות ממכירה</span>
+                <strong>${salesRevenue} ₪</strong>
+                <small>על בסיס פריטי הרכישה שהוזמנו</small>
+            </article>
+        </section>
+    `;
 }
 
 function renderInventoryRentalsList(activeRentals) {

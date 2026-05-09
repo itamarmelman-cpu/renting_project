@@ -570,6 +570,34 @@ button {
     font-weight: 700;
 }
 
+.inventory-dashboard-shell {
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.inventory-section-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 220px;
+}
+
+.inventory-view-select {
+    min-width: 220px;
+}
+
+.inventory-dashboard-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.inventory-panel-header {
+    padding-bottom: 4px;
+}
+
 .inventory-stats-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
