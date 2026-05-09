@@ -1,0 +1,307 @@
+
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <style>
+        body { transition: opacity ease-in 0.2s; }
+        body[unresolved] { opacity: 0; display: block; overflow: hidden; position: relative; }
+    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AguGo - Smart equipment distribution system for students">
+    <title>AguGo - ציוד אקדמי בלחיצת כפתור</title>
+    
+    <link rel="stylesheet" href="main.css">
+    <link rel="stylesheet" href="../cart/cartPageCSS.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="app-logo logo-container" id="logo-btn">
+                <img src="logo-pics/AguGo.png" alt="AguGo Logo" class="logo-image-agugo">
+                <img src="logo-pics/logo.png" alt="AguGo Logo" class="logo-image">
+            </div>
+
+            <div style="display: flex; gap: 16px; align-items: center;">
+                <button class="return-button" id="return-btn" title="Return Product">
+                    <span class="btn-icon">↺</span>
+                    <span class="btn-text">החזרת מוצר</span>
+                </button>
+
+                <button class="cart-button" id="cart-btn">
+                    <div class="cart-icon-wrapper">
+                        <img src="logo-pics/carts.png" alt="Cart" class="cart-icon-image">
+                    </div>
+                    <span class="cart-badge" id="cart-badge" style="display: none;">0</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main content - Updated by Router -->
+        <main class="app-main" id="main-content">
+            <div class="fade-in">
+                
+                <!-- Upgraded Catalog Header Starts Here -->
+                <div class="catalog-header-wrapper">
+                    <div class="catalog-header">
+                        <div class="catalog-title">
+                            <h2 class="catalog-main-title">קטלוג ציוד אקדמי</h2>
+                            <p class="catalog-subtitle">9 מוצרים זמינים להשכרה ולרכישה</p>
+                        </div>
+                        
+                        <div class="catalog-actions">
+                            <input type="text" class="form-input catalog-search-input" placeholder="חיפוש ציוד...">
+                            <button class="btn btn-primary">חפש</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Upgraded Catalog Header Ends Here -->
+
+                <div class="catalog-grid">
+                    
+            <article class="product-card">
+                <!-- Scientific Calculator Image -->
+                <img src="products-pics/scientific-calculator.png" alt="Casio fx-991ES" class="product-image">
+                
+                <h3 class="product-name">מחשבון מדעי</h3>
+                <p class="product-description">מחשבון מדעי Casio fx-991ES - מתאים לכל המבחנים האקדמיים</p>
+
+                <div class="product-meta">
+                    <div class="badges-row">
+                        <span class="type-badge rent">השכרה</span>
+                        <span class="stock-info low">נותרו 3 בלבד</span>
+                    </div>
+                    <div class="product-price">
+                        5<span class="product-currency">₪</span><span class="price-per-day"> ליום</span>
+                    </div>
+                </div>
+        
+                <button class="btn btn-primary btn-block add-to-cart-btn" data-product-id="p001">
+                    הוסף לסל
+                </button>
+            </article>
+        
+            <article class="product-card">
+                <!-- TI-84 Plus Graphing Calculator Image -->
+                <img src="products-pics/graphing-calculator.png" alt="TI-84 Plus" class="product-image">
+                
+                <h3 class="product-name">מחשבון גרפי</h3>
+                <p class="product-description">מחשבון גרפי TI-84 Plus - מצוין לסטטיסטיקה ומתמטיקה מתקדמת</p>
+
+                <div class="product-meta">
+                    <div class="badges-row">
+                        <span class="type-badge rent">השכרה</span>
+                        <span class="stock-info low">נותרו 2 בלבד</span>
+                    </div>
+                    <div class="product-price">
+                        5<span class="product-currency">₪</span><span class="price-per-day"> ליום</span>
+                    </div>
+                </div>
+        
+                <button class="btn btn-primary btn-block add-to-cart-btn" data-product-id="p002">
+                    הוסף לסל
+                </button>
+            </article>
+        
+            <article class="product-card">
+                <!-- Babylon Pocket Dictionary Image -->
+                <img src="products-pics/electronic-dictionary.png" alt="Babylon Pocket" class="product-image">
+                
+                <h3 class="product-name">מילונית עברית-אנגלית</h3>
+                <p class="product-description">Babylon Pocket - מילונית אלקטרונית מאושרת לבחינות</p>
+
+                <div class="product-meta">
+                    <div class="badges-row">
+                        <span class="type-badge rent">השכרה</span>
+                        <span class="stock-info">4 במלאי</span>
+                    </div>
+                    <div class="product-price">
+                        5<span class="product-currency">₪</span><span class="price-per-day"> ליום</span>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-block add-to-cart-btn" data-product-id="p003">
+                    הוסף לסל
+                </button>
+            </article>
+        
+            <article class="product-card">
+                <div class="product-icon">✏️</div>
+                <h3 class="product-name">סט עטים בסיסי</h3>
+                <p class="product-description">3 עטים כחולים + עט אדום + עיפרון - לרכישה</p>
+
+                <div class="product-meta">
+                    <div>
+                        <span class="type-badge buy">רכישה</span>
+                        <div class="stock-info ">12 במלאי</div>
+                    </div>
+                    <div class="product-price">
+                        15<span class="product-currency">₪</span>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-block add-to-cart-btn" data-product-id="p004">
+                    הוסף לסל
+                </button>
+            </article>
+        
+            <article class="product-card">
+                <div class="product-icon">📓</div>
+                <h3 class="product-name">מחברת A4</h3>
+                <p class="product-description">מחברת ספירלה 80 דפים, חלוקה לנושאים - לרכישה</p>
+
+                <div class="product-meta">
+                    <div>
+                        <span class="type-badge buy">רכישה</span>
+                        <div class="stock-info ">18 במלאי</div>
+                    </div>
+                    <div class="product-price">
+                        12<span class="product-currency">₪</span>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-block add-to-cart-btn" data-product-id="p005">
+                    הוסף לסל
+                </button>
+            </article>
+        
+            <article class="product-card">
+                <div class="product-icon">🖍️</div>
+                <h3 class="product-name">סט מרקרים</h3>
+                <p class="product-description">5 מרקרי הדגשה בצבעים שונים - לרכישה</p>
+
+                <div class="product-meta">
+                    <div>
+                        <span class="type-badge buy">רכישה</span>
+                        <div class="stock-info ">8 במלאי</div>
+                    </div>
+                    <div class="product-price">
+                        22<span class="product-currency">₪</span>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-block add-to-cart-btn" data-product-id="p006">
+                    הוסף לסל
+                </button>
+            </article>
+        
+            <article class="product-card">
+                <div class="product-icon">📐</div>
+                <h3 class="product-name">סרגל גיאומטרי</h3>
+                <p class="product-description">סרגל 30 ס"מ + מד זווית - לרכישה</p>
+
+                <div class="product-meta">
+                    <div>
+                        <span class="type-badge buy">רכישה</span>
+                        <div class="stock-info ">10 במלאי</div>
+                    </div>
+                    <div class="product-price">
+                        18<span class="product-currency">₪</span>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-block add-to-cart-btn" data-product-id="p007">
+                    הוסף לסל
+                </button>
+            </article>
+        
+            <article class="product-card">
+                <div class="product-icon">📚</div>
+                <h3 class="product-name">ספר תרגילים בקלקולוס</h3>
+                <p class="product-description">ספר תרגילים מסכם עם פתרונות - מתאים לסמסטר א'</p>
+
+                <div class="product-meta">
+                    <div>
+                        <span class="type-badge rent">השכרה</span>
+                        <div class="stock-info ">5 במלאי</div>
+                    </div>
+                    <div class="product-price">
+                        5<span class="product-currency">₪</span><span class="price-per-day"> ליום</span>
+                    </div>
+                </div>
+
+            <div class="rent-days-selector">
+                <label>מספר ימים:</label>
+                <div class="days-buttons">
+                    <button type="button" class="day-btn active" data-days="1">1</button>
+                    <button type="button" class="day-btn" data-days="2">2</button>
+                    <button type="button" class="day-btn" data-days="3">3</button>
+                </div>
+                <span class="rent-total-label">סה"כ: <span class="rent-total-value">5</span> ₪</span>
+            </div>
+        
+                <button class="btn btn-primary btn-block add-to-cart-btn" data-product-id="p008">
+                    הוסף לסל
+                </button>
+            </article>
+        
+            <article class="product-card">
+                <div class="product-icon">🔋</div>
+                <h3 class="product-name">מטען נייד</h3>
+                <p class="product-description">פאוורבנק 10000mAh - מתאים לימי לימודים ארוכים</p>
+
+                <div class="product-meta">
+                    <div>
+                        <span class="type-badge rent">השכרה</span>
+                        <div class="stock-info ">6 במלאי</div>
+                    </div>
+                    <div class="product-price">
+                        5<span class="product-currency">₪</span><span class="price-per-day"> ליום</span>
+                    </div>
+                </div>
+
+            <div class="rent-days-selector">
+                <label>מספר ימים:</label>
+                <div class="days-buttons">
+                    <button type="button" class="day-btn active" data-days="1">1</button>
+                    <button type="button" class="day-btn" data-days="2">2</button>
+                    <button type="button" class="day-btn" data-days="3">3</button>
+                </div>
+                <span class="rent-total-label">סה"כ: <span class="rent-total-value">5</span> ₪</span>
+            </div>
+        
+                <button class="btn btn-primary btn-block add-to-cart-btn" data-product-id="p009">
+                    הוסף לסל
+                </button>
+            </article>
+        
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer ecommerce-footer">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <div class="app-logo">
+                        <img src="logo-pics/AguGo.png" alt="AguGo Logo" class="logo-image-agugo">
+                    </div>
+                    <p class="brand-description">מערכת חכמה להשכרה ורכישת ציוד אקדמי לסטודנטים. כל מה שצריך, מתי שצריך, במרחק לחיצת כפתור.</p>
+                </div>
+                <div class="footer-links">
+                    <h3>ניווט מהיר</h3>
+                    <nav class="footer-nav">
+                        <a href="#catalog">קטלוג הציוד</a>
+                        <a href="#cart">עגלת הקניות שלך</a>
+                        <a href="#return">החזרת מוצרים</a>
+                        <a href="#faq">שאלות ותשובות</a>
+                    </nav>
+                </div>
+                <div class="footer-info">
+                    <h3>פרויקט אקדמי תשפ"ו</h3>
+                    <p>מפותח על ידי צוות AguGo:</p>
+                    <p class="team-names">איתמר מלמן | יונתן צור | עומר דורון | עמית קליינמן | שירה דניאל</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p class="copyright">© כל הזכויות שמורות - אב טיפוס לפרויקט מערכות מידע</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- App entry point - Must be module to support import -->
+    <script type="module" src="index.js"></script>
+
+</body>
+</html>

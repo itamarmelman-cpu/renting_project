@@ -1,7 +1,7 @@
 const STORAGE_KEYS = {
-    cart: 'aguda2go.cart',
-    inventory: 'aguda2go.inventory',
-    rentDays: 'aguda2go.rentDays',
+    cart: 'agugo.cart',
+    inventory: 'agugo.inventory',
+    rentDays: 'agugo.rentDays',
 };
 
 // For local development you can use the mock ESP32 server at http://localhost:5001
@@ -131,97 +131,141 @@ const appState = {
     lockerOpen: false,
 };
 
-let appShellInitialized = false;
-let activeNoticeTimeoutId = null;
-let inventoryDashboardRequestId = 0;
-let inventoryDashboardSummary = null;
-let inventoryDashboardSection = 'summary';
+// true after mountAppShell() has run; prevents duplicate DOM injection
+let isShellMounted = false;
+// setTimeout ID for the auto-hide timer on the notice banner
+let noticeTimerId = null;
+// Incremented on every dashboard fetch; used to discard stale async responses
+let dashboardFetchId = 0;
+// Cached result of the last successful dashboard data load
+let dashboardSummary = null;
+// Which dashboard section is currently displayed ('summary' | 'rentals' | 'inventory')
+let activeDashboardSection = 'summary';
 
 initializeApp();
 
+// ===== Bootstrap =====
+
+/**
+ * Entry point. Mounts the static app shell, wires up global event listeners,
+ * and renders the initial route derived from the current URL hash.
+ * Runs once on page load.
+ */
 function initializeApp() {
     mountAppShell();
     attachGlobalEventHandlers();
     syncHeaderState();
     window.addEventListener('hashchange', () => renderCurrentRoute(getRouteFromHash()));
 
-    // On first load, default to catalog
     const route = !location.hash ? 'catalog' : getRouteFromHash();
     renderCurrentRoute(route);
-    updateFooterQa(route);
+    renderFooterFaq(route);
 }
 
+/**
+ * Injects the permanent app chrome (header, notice bar, main content slot,
+ * and footer) into document.body. Skips execution after the first call so
+ * the shell is never duplicated during re-renders.
+ */
 function mountAppShell() {
-    if (appShellInitialized) {
+    if (isShellMounted) {
         return;
     }
 
-    document.body.classList.add('aguda2go-body');
     document.body.innerHTML = `
-        <div class="app-shell">
+        <div class="app">
             <header class="app-header">
-                <button class="brand-button" type="button" data-route-link="catalog" aria-label="עבור לקטלוג">
-                    <span class="brand-mark">A2G</span>
-                    <span class="brand-copy">
-                        <strong>Aguda2Go</strong>
-                        <span>השכרת לוקר חכמה</span>
-                    </span>
-                </button>
-
-                <nav class="header-actions" aria-label="ניווט ראשוני">
-                    <button class="nav-button" type="button" data-route-link="catalog">קטלוג</button>
-                    <button class="nav-button" type="button" data-route-link="return">החזרת מוצר</button>
-                    <button class="nav-button" type="button" data-route-link="cart">
-                        <span>עגלה</span>
-                        <span class="cart-badge" id="cart-badge" hidden>0</span>
+                <div class="app-logo logo-container" data-route-link="catalog" style="cursor:pointer">
+                    <img src="catalog/logo-pics/AguGoLogo.png" alt="AguGo Logo" class="logo-image-agugo">
+                    <img src="catalog/logo-pics/AgudaLogo.png" alt="AguGo Logo" class="logo-image">
+                </div>
+                <div style="display: flex; gap: 16px; align-items: center;">
+                    <button class="return-button" type="button" data-route-link="return">
+                        <span class="btn-icon">↺</span>
+                        <span class="btn-text">החזרת מוצר</span>
                     </button>
-                    <button class="nav-button nav-button-accent" type="button" data-route-link="inventory">כניסה אגודה</button>
-                </nav>
+                    <button class="cart-button" type="button" data-route-link="cart" id="cart-btn">
+                        <div class="cart-icon-wrapper">
+                            <img src="catalog/logo-pics/CartIcon.png" alt="עגלה" class="cart-icon-image">
+                        </div>
+                        <span class="cart-badge" id="cart-badge" style="display: none;">0</span>
+                    </button>
+                    <button class="association-login-button" type="button" data-route-link="inventory">
+                       התחברות אגודה
+                    </button>
+                </div>
             </header>
 
             <div class="app-notice" id="app-notice" hidden></div>
 
             <main class="app-main" id="main-content"></main>
 
-            <footer class="app-footer">
+            <footer class="app-footer ecommerce-footer">
                 <div class="footer-grid">
-                    <section>
-                        <h2>Aguda2Go</h2>
-                        <p>מערכת חכמה להשכרה, החזרה ושליטה על לוקרים לציוד סטודנטיאלי.</p>
-                    </section>
-                    <section>
-                        <h3>ניווט מהיר</h3>
-                        <div class="footer-links">
-                            <button type="button" class="footer-link" data-route-link="catalog">קטלוג</button>
-                            <button type="button" class="footer-link" data-route-link="cart">עגלה</button>
-                            <button type="button" class="footer-link" data-route-link="return">החזרת מוצר</button>
-                            <button type="button" class="footer-link" data-route-link="inventory">ניהול מלאי</button>
+                    <div class="footer-brand">
+                        <div class="app-logo logo-container" data-route-link="catalog" style="cursor:pointer; justify-content: flex-start;">
+                            <img src="catalog/logo-pics/AguGoLogo.png" alt="AguGo Logo" class="logo-image-agugo">
+                            <img src="catalog/logo-pics/AgudaLogo.png" alt="Student Union Logo" class="logo-image">
                         </div>
-                    </section>
-                    <section>
-                        <h3>הערת פרויקט</h3>
-                        <p>ממשק משתמש מינימלי, מצב מלאי קבוע, וניסיונות חומרה מדומים ללוקר ESP32.</p>
+                        <p class="brand-description">מערכת חכמה להשכרה ורכישת ציוד אקדמי לסטודנטים. כל מה שצריך, מתי שצריך, במרחק לחיצת כפתור.</p>
+                    </div>
+                    <div class="footer-links">
+                        <h3>ניווט מהיר</h3>
+                        <nav class="footer-nav">
+                            <a href="#catalog" data-route-link="catalog">קטלוג הציוד</a>
+                            <a href="#cart" data-route-link="cart">עגלת הקניות שלך</a>
+                            <a href="#return" data-route-link="return">החזרת מוצרים</a>
+                            <a href="#inventory" data-route-link="inventory">ניהול מלאי</a>
+                        </nav>
+                    </div>
+                    <div class="footer-info">
+                        <h3>פרויקט אקדמי תשפ"ו</h3>
+                        <p>מפותח על ידי צוות AguGo:</p>
+                        <p class="team-names">איתמר מלמן | יונתן צור | עומר דורון | עמית קליינמן | שירה דניאל</p>
+                    </div>
+                </div>
+                <div class="footer-grid footer-grid-qa">
+                    <section class="footer-qa-section">
+                        <div class="footer-qa-header">
+                            <div>
+                                <h3>שאלות נפוצות </h3>
+                            </div>
+                        </div>
+                        <div class="footer-qa-list" id="footer-qa-list"></div>
                     </section>
                 </div>
-
-                <section class="footer-qa card" aria-label="שאלות ותשובות">
-                    <div class="footer-qa-header">
-                        <div>
-                            <span class="eyebrow">Q&A</span>
-                            <h3>שאלות ותשובות מהירות</h3>
-                        </div>
-                        <p>תמיד זמין בתחתית כל דף.</p>
-                    </div>
-
-                    <div class="footer-qa-list" id="footer-qa-list"></div>
-                </section>
+                <div class="footer-bottom">
+                    <p class="copyright">© כל הזכויות שמורות - אב טיפוס לפרויקט מערכות מידע</p>
+                </div>
             </footer>
         </div>
     `;
 
-    appShellInitialized = true;
+    isShellMounted = true;
 }
 
+// ===== Event Delegation =====
+
+/**
+ * Attaches a single set of delegated listeners to document and #main-content.
+ * All dynamic page elements are handled here so individual render functions
+ * never need to bind their own listeners.
+ *
+ * Handles:
+ * - [data-route-link] clicks → navigation
+ * - [data-action="add-to-cart"] → addProductToCart
+ * - [data-action="select-rent-days"] → setRentDaysPreference
+ * - [data-action="change-cart-quantity"] → updateCartItemQuantity
+ * - [data-action="remove-cart-item"] → removeCartItem
+ * - [data-action="process-payment"] → processMockPayment
+ * - [data-action="locker-control"] → locker open/close
+ * - [data-action="catalog-search"] → catalog search
+ * - #add-product-btn, .edit-stock-btn, .remove-product-btn → inventory modals
+ * - #inventory-section-select change → dashboard section switch
+ * - [data-return-product-select] change → updateReturnPreview
+ * - [data-return-file-input] change → file label update
+ * - form submits for catalog search, return, checkout, edit-stock, add-product
+ */
 function attachGlobalEventHandlers() {
     const appMain = document.getElementById('main-content');
 
@@ -241,8 +285,21 @@ function attachGlobalEventHandlers() {
 
         const rentDayButton = event.target.closest('[data-action="select-rent-days"]');
         if (rentDayButton) {
-            setRentDaysPreference(rentDayButton.dataset.productId, Number(rentDayButton.dataset.days));
-            renderCurrentRoute('catalog');
+            const productId = rentDayButton.dataset.productId;
+            const days = Number(rentDayButton.dataset.days);
+            setRentDaysPreference(productId, days);
+            // Update the selector in-place — no full page re-render needed
+            const card = rentDayButton.closest('.product-card');
+            if (card) {
+                card.querySelectorAll('[data-action="select-rent-days"]').forEach((btn) => {
+                    btn.classList.toggle('active', Number(btn.dataset.days) === days);
+                });
+                const totalValue = card.querySelector('.rent-total-value');
+                const product = getProductById(productId);
+                if (totalValue && product) {
+                    totalValue.textContent = String(product.price * days);
+                }
+            }
             return;
         }
 
@@ -281,7 +338,6 @@ function attachGlobalEventHandlers() {
             renderCurrentRoute('catalog');
         }
 
-        // Inventory management handlers
         const addProductBtn = event.target.closest('#add-product-btn');
         if (addProductBtn) {
             openAddModal();
@@ -300,7 +356,7 @@ function attachGlobalEventHandlers() {
         if (removeProductBtn) {
             const productId = removeProductBtn.dataset.productId;
             const productName = removeProductBtn.dataset.productName;
-            if (confirm(`Remove "${productName}" from inventory?`)) {
+            if (confirm(`להסיר את "${productName}" מהמלאי?`)) {
                 removeProduct(productId);
             }
             return;
@@ -309,7 +365,7 @@ function attachGlobalEventHandlers() {
 
     appMain.addEventListener('change', (event) => {
         if (event.target.matches('#inventory-section-select')) {
-            inventoryDashboardSection = event.target.value || 'summary';
+            activeDashboardSection = event.target.value || 'summary';
             renderInventoryDashboardView();
             return;
         }
@@ -359,22 +415,43 @@ function attachGlobalEventHandlers() {
         if (event.target.matches('[data-return-file-input]')) {
             const label = document.querySelector('[data-return-file-label]');
             if (label) {
-                label.textContent = event.target.files && event.target.files.length ? event.target.files[0].name : 'No file selected';
+                label.textContent = event.target.files && event.target.files.length ? event.target.files[0].name : 'לא נבחר קובץ';
             }
         }
     });
 }
 
+// ===== Routing =====
+
+/**
+ * Returns the fallback route string. Reads data-default-route from <body>
+ * so the server can override the default without changing JS.
+ *
+ * @returns {string}
+ */
 function getDefaultRoute() {
     const defaultRoute = document.body.dataset.defaultRoute || 'catalog';
     return ROUTES.has(defaultRoute) ? defaultRoute : 'catalog';
 }
 
+/**
+ * Parses the URL hash (e.g. '#cart') into a route key ('cart').
+ * Returns the default route for hashes that don't match ROUTES.
+ *
+ * @returns {string}
+ */
 function getRouteFromHash() {
     const route = location.hash.replace('#', '').split('?')[0];
     return ROUTES.has(route) ? route : getDefaultRoute();
 }
 
+/**
+ * Navigates to the given route by updating location.hash. If the target
+ * hash is already active, forces an immediate re-render without adding a
+ * new history entry.
+ *
+ * @param {string} route - A value from the ROUTES set
+ */
 function navigateToRoute(route) {
     const safeRoute = ROUTES.has(route) ? route : getDefaultRoute();
     if (location.hash === `#${safeRoute}`) {
@@ -385,14 +462,23 @@ function navigateToRoute(route) {
     location.hash = safeRoute;
 }
 
+/**
+ * Renders the page for the given route into #main-content, then refreshes
+ * the cart badge and footer FAQ. For the inventory route it also triggers
+ * an async data load.
+ *
+ * @param {string} route
+ */
 function renderCurrentRoute(route) {
     const main = document.getElementById('main-content');
     if (!main) {
         return;
     }
 
+    window.scrollTo({ top: 0, behavior: 'instant' });
+
     const safeRoute = ROUTES.has(route) ? route : getDefaultRoute();
-    updateActiveNavigation(safeRoute);
+    highlightActiveRoute(safeRoute);
 
     if (safeRoute === 'catalog') {
         main.innerHTML = renderCatalogPage();
@@ -410,10 +496,17 @@ function renderCurrentRoute(route) {
     }
 
     syncHeaderState();
-    updateFooterQa(safeRoute);
+    renderFooterFaq(safeRoute);
 }
 
-function updateFooterQa(route) {
+/**
+ * Populates the footer FAQ list with contextual Q&A items for the current route.
+ * Inventory route gets admin-oriented questions; all other routes get
+ * student-oriented questions.
+ *
+ * @param {string} route
+ */
+function renderFooterFaq(route) {
     const footerQaList = document.getElementById('footer-qa-list');
     if (!footerQaList) {
         return;
@@ -448,27 +541,47 @@ function updateFooterQa(route) {
         </details>
         <details class="footer-qa-item">
             <summary>איך משלמים?</summary>
-            <p>מגיעים לעמוד התשלום, ממלאים שם פרטי ומשפחה ובוחרים אמצעי תשלום מדומה.</p>
+            <p>מגיעים לעמוד התשלום, ממלאים שם פרטי ומשפחה ובוחרים אמצעי תשלום דמה.</p>
         </details>
     `;
 }
 
-function updateActiveNavigation(route) {
+/**
+ * Adds the 'is-active' CSS class to every [data-route-link] whose value
+ * matches the given route, and removes it from all others.
+ *
+ * @param {string} route
+ */
+function highlightActiveRoute(route) {
     document.querySelectorAll('[data-route-link]').forEach((button) => {
         button.classList.toggle('is-active', button.dataset.routeLink === route);
     });
 }
 
+/**
+ * Reads the current cart item count and updates the #cart-badge element.
+ * Hides the badge when the cart is empty; shows it as a flex element otherwise.
+ */
 function syncHeaderState() {
     const cartBadge = document.getElementById('cart-badge');
     const cartCount = getCartItemCount();
 
     if (cartBadge) {
         cartBadge.textContent = String(cartCount);
-        cartBadge.hidden = cartCount === 0;
+        cartBadge.style.display = cartCount === 0 ? 'none' : 'flex';
     }
 }
 
+// ===== Notice Banner =====
+
+/**
+ * Displays a dismissible notice banner above the main content area.
+ * The banner auto-hides after 3.2 seconds. Calling this while a notice is
+ * already visible resets the timer.
+ *
+ * @param {string} message - Text to display in the banner
+ * @param {'info'|'success'|'error'} [tone='info'] - Controls colour via data-tone attribute
+ */
 function showNotice(message, tone = 'info') {
     const notice = document.getElementById('app-notice');
     if (!notice) {
@@ -479,12 +592,22 @@ function showNotice(message, tone = 'info') {
     notice.dataset.tone = tone;
     notice.hidden = false;
 
-    window.clearTimeout(activeNoticeTimeoutId);
-    activeNoticeTimeoutId = window.setTimeout(() => {
+    window.clearTimeout(noticeTimerId);
+    noticeTimerId = window.setTimeout(() => {
         notice.hidden = true;
     }, 3200);
 }
 
+// ===== localStorage Helpers =====
+
+/**
+ * Reads a value from localStorage and JSON-parses it.
+ * Returns fallbackValue when the key is missing or the stored data is invalid.
+ *
+ * @param {string} storageKey
+ * @param {*} fallbackValue - Returned when the key is absent or unparseable
+ * @returns {*}
+ */
 function loadStoredJson(storageKey, fallbackValue) {
     try {
         const rawValue = localStorage.getItem(storageKey);
@@ -494,15 +617,35 @@ function loadStoredJson(storageKey, fallbackValue) {
     }
 }
 
+/**
+ * Serialises value to JSON and writes it to localStorage under storageKey.
+ *
+ * @param {string} storageKey
+ * @param {*} value
+ */
 function saveStoredJson(storageKey, value) {
     localStorage.setItem(storageKey, JSON.stringify(value));
 }
 
+// ===== State Loaders =====
+
+/**
+ * Loads the cart array from localStorage.
+ * Returns an empty array if the stored value is absent or not an array.
+ *
+ * @returns {Array<{productId: string, quantity: number, rentDays: number}>}
+ */
 function loadCartState() {
     const cartItems = loadStoredJson(STORAGE_KEYS.cart, []);
     return Array.isArray(cartItems) ? cartItems : [];
 }
 
+/**
+ * Loads the inventory map from localStorage. If no stored inventory exists,
+ * builds a default map from PRODUCTS default stock values and persists it.
+ *
+ * @returns {Object.<string, number>} productId → stock count
+ */
 function loadInventoryState() {
     const storedInventory = loadStoredJson(STORAGE_KEYS.inventory, null);
     if (storedInventory && typeof storedInventory === 'object') {
@@ -514,7 +657,13 @@ function loadInventoryState() {
     return defaultInventory;
 }
 
-// Attempt to sync inventory from server API (non-blocking)
+/**
+ * Attempts to synchronise the local inventory with the /api/inventory server
+ * endpoint. Silently ignores network failures so the app continues working
+ * offline or when the dev server is not running.
+ *
+ * @returns {Promise<void>}
+ */
 async function syncFromServerInventory() {
     try {
         const resp = await fetch('/api/inventory');
@@ -528,6 +677,15 @@ async function syncFromServerInventory() {
     }
 }
 
+/**
+ * Builds a normalised inventory map that contains exactly one entry per
+ * known product. Values from the supplied object are carried over; any
+ * product not present in the object falls back to its PRODUCTS default stock.
+ * The result is persisted to localStorage.
+ *
+ * @param {Object.<string, number>} inventory - Raw inventory object to normalise
+ * @returns {Object.<string, number>}
+ */
 function ensureInventoryShape(inventory) {
     const normalizedInventory = {};
 
@@ -540,41 +698,87 @@ function ensureInventoryShape(inventory) {
     return normalizedInventory;
 }
 
+// ===== Lookup Helpers =====
+
+/**
+ * Finds and returns a product definition by its ID.
+ *
+ * @param {string} productId
+ * @returns {Object|null} Product object, or null if not found
+ */
 function getProductById(productId) {
     return PRODUCTS.find((product) => product.id === productId) || null;
 }
 
+/**
+ * Finds and returns the cart entry for the given product ID.
+ *
+ * @param {string} productId
+ * @returns {Object|null} Cart item object, or null if the product is not in the cart
+ */
 function getCartItemByProductId(productId) {
     return appState.cart.find((item) => item.productId === productId) || null;
 }
 
+/**
+ * Sums the quantity field across all cart entries.
+ *
+ * @returns {number} Total number of individual items in the cart
+ */
 function getCartItemCount() {
     return appState.cart.reduce((total, item) => total + item.quantity, 0);
 }
 
+/**
+ * Returns the current stock level for a product from the local inventory state.
+ *
+ * @param {string} productId
+ * @returns {number}
+ */
 function getInventoryStock(productId) {
     return Number(appState.inventory[productId] || 0);
 }
 
+/**
+ * Returns the stock available for adding to the cart, subtracting units
+ * already reserved in the cart to prevent over-ordering.
+ *
+ * @param {string} productId
+ * @returns {number}
+ */
 function getAvailableStock(productId) {
     const cartQuantity = getCartQuantity(productId);
     return Math.max(0, getInventoryStock(productId) - cartQuantity);
 }
 
+/**
+ * Returns how many units of the given product are currently in the cart, or 0.
+ *
+ * @param {string} productId
+ * @returns {number}
+ */
 function getCartQuantity(productId) {
     const cartItem = getCartItemByProductId(productId);
     return cartItem ? cartItem.quantity : 0;
 }
 
+// ===== State Persistence =====
+
+/**
+ * Persists the current cart array to localStorage and refreshes the cart badge.
+ */
 function saveCartState() {
     saveStoredJson(STORAGE_KEYS.cart, appState.cart);
     syncHeaderState();
 }
 
+/**
+ * Persists the current inventory map to localStorage, refreshes the cart badge,
+ * and fires a non-blocking POST to the dev API when it is available.
+ */
 function saveInventoryState() {
     saveStoredJson(STORAGE_KEYS.inventory, appState.inventory);
     syncHeaderState();
-    // try to persist to dev API if available
     try {
         fetch('/api/inventory', {
             method: 'POST',
@@ -584,16 +788,41 @@ function saveInventoryState() {
     } catch {}
 }
 
+// ===== Rent-Day Preferences =====
+
+/**
+ * Stores the user's chosen rental duration for a product in localStorage.
+ *
+ * @param {string} productId
+ * @param {1|2|3} days - Number of rental days selected
+ */
 function setRentDaysPreference(productId, days) {
     appState.rentDaysByProductId[productId] = days;
     saveStoredJson(STORAGE_KEYS.rentDays, appState.rentDaysByProductId);
 }
 
+/**
+ * Returns the stored rental-day preference for a product.
+ * Defaults to 1 if no valid preference (1, 2, or 3) is found.
+ *
+ * @param {string} productId
+ * @returns {1|2|3}
+ */
 function getRentDaysPreference(productId) {
     const selectedDays = Number(appState.rentDaysByProductId[productId]);
     return [1, 2, 3].includes(selectedDays) ? selectedDays : 1;
 }
 
+// ===== Cart Operations =====
+
+/**
+ * Adds a product to the cart, or increments its quantity if already present.
+ * Applies the current rent-day preference for rental items. Shows an error
+ * notice when the product is out of stock, and a success notice on add.
+ * Re-renders the catalog or cart depending on the current route.
+ *
+ * @param {string} productId
+ */
 function addProductToCart(productId) {
     const product = getProductById(productId);
     if (!product) {
@@ -610,22 +839,32 @@ function addProductToCart(productId) {
     const cartItem = getCartItemByProductId(productId);
     if (cartItem) {
         cartItem.quantity += 1;
-        if (product.type === 'rent') {
-            cartItem.rentDays = getRentDaysPreference(productId);
-        }
+        cartItem.rentDays = getRentDaysPreference(productId);
     } else {
         appState.cart.push({
             productId: product.id,
             quantity: 1,
-            rentDays: product.type === 'rent' ? getRentDaysPreference(productId) : 1,
+            rentDays: getRentDaysPreference(productId),
         });
     }
 
     saveCartState();
     showNotice(`${product.name} נוסף לעגלה.`, 'success');
-    renderCurrentRoute(getRouteFromHash() === 'cart' ? 'cart' : 'catalog');
+    // Only re-render if the user is already viewing the cart; the badge
+    // is already updated by saveCartState() → syncHeaderState()
+    if (getRouteFromHash() === 'cart') {
+        renderCurrentRoute('cart');
+    }
 }
 
+/**
+ * Adjusts the quantity of an existing cart item by delta. Removes the item
+ * when the result would be 0 or below. Shows an error when the requested
+ * quantity exceeds available stock.
+ *
+ * @param {string} productId
+ * @param {number} delta - Positive to increase, negative to decrease
+ */
 function updateCartItemQuantity(productId, delta) {
     const cartItem = getCartItemByProductId(productId);
     if (!cartItem) {
@@ -649,31 +888,60 @@ function updateCartItemQuantity(productId, delta) {
     renderCurrentRoute('cart');
 }
 
+/**
+ * Removes the cart entry for the given product and re-renders the cart page.
+ *
+ * @param {string} productId
+ */
 function removeCartItem(productId) {
     appState.cart = appState.cart.filter((item) => item.productId !== productId);
     saveCartState();
     renderCurrentRoute('cart');
 }
 
+/**
+ * Empties all items from the cart and persists the empty state.
+ */
 function clearCart() {
     appState.cart = [];
     saveCartState();
 }
 
+// ===== Price Calculations =====
+
+/**
+ * Calculates the line-item total for a cart entry:
+ * price × quantity × rentDays (rentDays is always 1 for purchase-type products).
+ *
+ * @param {{productId: string, quantity: number, rentDays: number}} cartItem
+ * @returns {number}
+ */
 function calculateCartItemTotal(cartItem) {
     const product = getProductById(cartItem.productId);
     if (!product) {
         return 0;
     }
 
-    const rentDays = product.type === 'rent' ? cartItem.rentDays : 1;
-    return product.price * cartItem.quantity * rentDays;
+    return product.price * cartItem.quantity * (cartItem.rentDays || 1);
 }
 
+/**
+ * Returns the grand total of all cart item totals.
+ *
+ * @returns {number}
+ */
 function calculateCartTotal() {
     return appState.cart.reduce((total, cartItem) => total + calculateCartItemTotal(cartItem), 0);
 }
 
+// ===== Page Renderers =====
+
+/**
+ * Builds and returns the full catalog page HTML. Filters PRODUCTS by the
+ * current catalogSearchQuery before rendering.
+ *
+ * @returns {string} HTML string
+ */
 function renderCatalogPage() {
     const filteredProducts = PRODUCTS.filter((product) => {
         const searchableText = `${product.name} ${product.description} ${product.searchTerms}`.toLowerCase();
@@ -681,86 +949,126 @@ function renderCatalogPage() {
     });
 
     return `
-        <section class="page-hero card">
-            <div>
-                <span class="eyebrow">קטלוג</span>
-                <h1>קטלוג הציוד האקדמי</h1>
-                <p>בחרו מוצר, הגדירו ימים למוצרים להשכרה, והוסיפו לסל בקצב עבודה פשוט ונקי.</p>
-            </div>
-            <form class="catalog-search" data-catalog-search-form>
-                <input
-                    type="text"
-                    class="text-input"
-                    placeholder="חיפוש מוצרים"
-                    value="${escapeHtml(appState.catalogSearchQuery)}"
-                    data-catalog-search-input
-                />
-                <button type="submit" class="primary-button" data-action="catalog-search">חפש</button>
-            </form>
-        </section>
-
-        <section class="catalog-grid">
-            ${filteredProducts.map(renderProductCard).join('') || renderEmptyCatalogState()}
-        </section>
-    `;
-}
-
-function renderProductCard(product) {
-    const selectedDays = getRentDaysPreference(product.id);
-    const stockLabel = getInventoryStock(product.id) <= 2 ? `Low stock: ${getInventoryStock(product.id)}` : `${getInventoryStock(product.id)} in stock`;
-
-    return `
-        <article class="product-card card">
-            ${product.image ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}" class="product-image"/>` : `<div class="product-visual">${escapeHtml(product.visual)}</div>`}
-            <div class="product-content">
-                <div class="product-header">
-                    <h2>${escapeHtml(product.name)}</h2>
-                    <span class="product-type type-${product.type}">${escapeHtml(product.categoryLabel)}</span>
+        <div class="fade-in">
+            <div class="catalog-header-wrapper">
+                <div class="catalog-header">
+                    <div class="catalog-title">
+                        <h2 class="catalog-main-title">קטלוג ציוד אקדמי</h2>
+                        <p class="catalog-subtitle">${PRODUCTS.length} מוצרים זמינים להשכרה ולרכישה</p>
+                    </div>
+                    <div class="catalog-actions">
+                        <input
+                            type="text"
+                            class="catalog-search-input"
+                            placeholder="חיפוש ציוד..."
+                            value="${escapeHtml(appState.catalogSearchQuery)}"
+                            data-catalog-search-input
+                        >
+                        <button class="btn btn-primary" type="button" data-action="catalog-search">חפש</button>
+                    </div>
                 </div>
-                <p>${escapeHtml(product.description)}</p>
-                <div class="product-meta">
-                    <span class="stock-pill">${escapeHtml(stockLabel.replace('Low stock:', 'מלאי נמוך:').replace('in stock', 'במלאי'))}</span>
-                    <span class="price-pill">${product.price} ₪${product.type === 'rent' ? ` / ${escapeHtml(product.rentLabel)}` : ''}</span>
-                </div>
-                ${product.type === 'rent' ? renderRentDaySelector(product.id, selectedDays) : ''}
-                <button type="button" class="primary-button block-button" data-action="add-to-cart" data-product-id="${product.id}">
-                    הוסף לסל
-                </button>
             </div>
-        </article>
-    `;
-}
-
-function renderRentDaySelector(productId, selectedDays) {
-    return `
-        <div class="rent-selector">
-            <span>מספר ימים:</span>
-            <div class="rent-selector-buttons">
-                ${[1, 2, 3].map((days) => `
-                    <button
-                        type="button"
-                        class="rent-day-button ${days === selectedDays ? 'is-selected' : ''}"
-                        data-action="select-rent-days"
-                        data-product-id="${productId}"
-                        data-days="${days}"
-                    >
-                        ${days}
-                    </button>
-                `).join('')}
+            <div class="catalog-grid">
+                ${filteredProducts.map(renderProductCard).join('') || renderEmptyCatalogState()}
             </div>
         </div>
     `;
 }
 
+/**
+ * Renders a single product card, including media, name, description, badges,
+ * price, an optional rent-day selector, and an add-to-cart button.
+ *
+ * @param {Object} product - A product definition from PRODUCTS
+ * @returns {string} HTML string for one <article> card
+ */
+function renderProductCard(product) {
+    const selectedDays = getRentDaysPreference(product.id);
+    const stock = getInventoryStock(product.id);
+    const isLowStock = stock <= 2;
+    const stockLabel = isLowStock ? `נותרו ${stock} בלבד` : `${stock} במלאי`;
+    const typeLabel = product.type === 'rent' ? 'השכרה' : 'רכישה';
+
+    const mediaHtml = product.image
+        ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}" class="product-image">`
+        : `<div class="product-icon">${escapeHtml(product.visual)}</div>`;
+
+    const priceHtml = `${product.price}<span class="product-currency">₪</span><span class="price-per-day"> ליום</span>`;
+
+    return `
+        <article class="product-card">
+            ${mediaHtml}
+            <h3 class="product-name">${escapeHtml(product.name)}</h3>
+            <p class="product-description">${escapeHtml(product.description)}</p>
+            <div class="product-meta">
+                <div class="badges-row">
+                    <span class="type-badge ${product.type}">${escapeHtml(typeLabel)}</span>
+                    <span class="stock-info${isLowStock ? ' low' : ''}">${escapeHtml(stockLabel)}</span>
+                </div>
+                <div class="product-price">${priceHtml}</div>
+            </div>
+            ${renderRentDaySelector(product.id, selectedDays)}
+            <button type="button" class="btn btn-primary btn-block add-to-cart-btn"
+                data-action="add-to-cart"
+                data-product-id="${escapeHtml(product.id)}">
+                הוסף לסל
+            </button>
+        </article>
+    `;
+}
+
+/**
+ * Renders the rental-day selector widget (1 / 2 / 3 day buttons + running
+ * total) for a rentable product. The currently selected day count receives
+ * the 'active' CSS class.
+ *
+ * @param {string} productId
+ * @param {1|2|3} selectedDays - Currently active day count
+ * @returns {string} HTML string
+ */
+function renderRentDaySelector(productId, selectedDays) {
+    const product = getProductById(productId);
+    const total = product ? product.price * selectedDays : 0;
+    return `
+        <div class="rent-days-selector">
+            <label>מספר ימים:</label>
+            <div class="days-buttons">
+                ${[1, 2, 3].map((days) => `
+                    <button
+                        type="button"
+                        class="day-btn${days === selectedDays ? ' active' : ''}"
+                        data-action="select-rent-days"
+                        data-product-id="${escapeHtml(productId)}"
+                        data-days="${days}"
+                    >${days}</button>
+                `).join('')}
+            </div>
+            <span class="rent-total-label">סה"כ: <span class="rent-total-value">${total}</span> ₪</span>
+        </div>
+    `;
+}
+
+/**
+ * Returns the empty-state markup shown inside the catalog grid when no
+ * products match the current search query.
+ *
+ * @returns {string} HTML string
+ */
 function renderEmptyCatalogState() {
     return `
-        <div class="card empty-state">
+        <div class="empty-state" style="grid-column: 1/-1;">
             <h2>לא נמצאו מוצרים</h2>
             <p>נסה מונח חיפוש אחר.</p>
         </div>
     `;
 }
 
+/**
+ * Renders the cart page. Shows an empty-state section when the cart has no
+ * items, otherwise renders item cards alongside an order summary panel.
+ *
+ * @returns {string} HTML string
+ */
 function renderCartPage() {
     if (appState.cart.length === 0) {
         return `
@@ -805,6 +1113,13 @@ function renderCartPage() {
     `;
 }
 
+/**
+ * Renders a single cart item card with quantity controls and a remove button.
+ * Returns an empty string if the referenced product no longer exists.
+ *
+ * @param {{productId: string, quantity: number, rentDays: number}} cartItem
+ * @returns {string} HTML string
+ */
 function renderCartItem(cartItem) {
     const product = getProductById(cartItem.productId);
     if (!product) {
@@ -825,8 +1140,8 @@ function renderCartItem(cartItem) {
                     <button type="button" class="icon-button" data-action="remove-cart-item" data-product-id="${product.id}">×</button>
                 </div>
                 <div class="cart-item-meta">
-                    <span>${product.type === 'rent' ? `${cartItem.rentDays} ימים` : 'פריט רכישה'}</span>
-                    <span>${product.price} ₪${product.type === 'rent' ? ` / ${escapeHtml(product.rentLabel)}` : ''}</span>
+                    <span>${cartItem.rentDays} ימים</span>
+                    <span>${product.price} ₪ / ליום</span>
                 </div>
                 <div class="cart-quantity-controls">
                     <button type="button" class="quantity-button" data-action="change-cart-quantity" data-product-id="${product.id}" data-delta="-1">-</button>
@@ -839,6 +1154,13 @@ function renderCartItem(cartItem) {
     `;
 }
 
+/**
+ * Renders the checkout page with a customer details form, mock payment
+ * buttons, and an order preview panel. Returns an empty-state page when
+ * the cart is empty.
+ *
+ * @returns {string} HTML string
+ */
 function renderCheckoutPage() {
     if (appState.cart.length === 0) {
         return `
@@ -858,7 +1180,7 @@ function renderCheckoutPage() {
             <div>
                 <span class="eyebrow">תשלום</span>
                 <h1>תשלום דמה</h1>
-                <p>מלא את שמך ובחר בשיטת תשלום דמה. תשלום מוצלח יהיה לך לשليטה על לוקר.</p>
+                <p>מלא את שמך ובחר בשיטת תשלום דמה. תשלום מוצלח יהיה לך לשליטה על לוקר.</p>
             </div>
             <div class="checkout-total">
                 <span>סך הכל</span>
@@ -900,6 +1222,14 @@ function renderCheckoutPage() {
     `;
 }
 
+/**
+ * Validates the checkout form, checks stock availability, deducts inventory,
+ * clears the cart, saves checkout context to localStorage, and navigates to
+ * the locker page. Shows appropriate error notices on validation failure.
+ * Called when a payment button is clicked on the checkout page.
+ *
+ * @param {string} provider - Payment provider label displayed to the user (e.g. 'Apple Pay')
+ */
 function processMockPayment(provider) {
     const checkoutForm = document.querySelector('[data-checkout-form]');
     if (!checkoutForm) {
@@ -910,12 +1240,12 @@ function processMockPayment(provider) {
     const lastName = checkoutForm.querySelector('input[name="lastName"]').value.trim();
 
     if (!firstName || !lastName) {
-        showNotice('First Name and Last Name are required.', 'error');
+        showNotice('שם פרטי ושם משפחה הם שדות חובה.', 'error');
         return;
     }
 
     if (appState.cart.length === 0) {
-        showNotice('Your cart is empty.', 'error');
+        showNotice('העגלה שלך ריקה.', 'error');
         navigateToRoute('cart');
         return;
     }
@@ -937,7 +1267,7 @@ function processMockPayment(provider) {
     const purchasedItems = appState.cart.map((item) => ({ ...item }));
     clearCart();
     appState.lockerOpen = false;
-    saveStoredJson('aguda2go.checkoutContext', {
+    saveStoredJson('agugo.checkoutContext', {
         customerName: `${firstName} ${lastName}`,
         provider,
         purchasedItems,
@@ -948,6 +1278,12 @@ function processMockPayment(provider) {
     navigateToRoute('locker');
 }
 
+/**
+ * Renders the locker control page with open/close action buttons and a
+ * status chip that reflects the current appState.lockerOpen value.
+ *
+ * @returns {string} HTML string
+ */
 function renderLockerControlPage() {
     return `
         <section class="page-hero card">
@@ -972,6 +1308,13 @@ function renderLockerControlPage() {
     `;
 }
 
+/**
+ * Handles open/close locker commands issued from the locker control page.
+ * Sends the servo command, updates appState.lockerOpen, updates the status
+ * text in the DOM, shows a notice, and re-renders the page.
+ *
+ * @param {'open'|'close'} command
+ */
 function operateLockerFromCurrentPage(command) {
     const lockerStatus = document.getElementById('locker-status');
 
@@ -997,6 +1340,14 @@ function operateLockerFromCurrentPage(command) {
     }
 }
 
+/**
+ * Sends an HTTP POST to the ESP32 servo endpoint at ESP32_BASE_URL.
+ * Returns a mocked response object when the endpoint is unreachable so
+ * that the UI can continue functioning without hardware.
+ *
+ * @param {'open'|'close'} command
+ * @returns {Promise<Object>}
+ */
 async function sendLockerServoCommand(command) {
     const endpoint = `${ESP32_BASE_URL}/api/locker/${command}`;
     try {
@@ -1018,6 +1369,13 @@ async function sendLockerServoCommand(command) {
     }
 }
 
+/**
+ * Renders the product return page, including a form for customer details,
+ * a product selector, a file upload field, locker control buttons, and a
+ * sidebar showing the stock impact of the pending return.
+ *
+ * @returns {string} HTML string
+ */
 function renderReturnProductPage() {
     const firstProduct = PRODUCTS[0];
     return `
@@ -1074,6 +1432,11 @@ function renderReturnProductPage() {
     `;
 }
 
+/**
+ * Triggered when the product select changes on the return page. Updates the
+ * return status text and the stock impact summary to reflect the newly
+ * chosen product.
+ */
 function updateReturnPreview() {
     const select = document.querySelector('[data-return-product-select]');
     const status = document.getElementById('return-status');
@@ -1090,7 +1453,7 @@ function updateReturnPreview() {
     }
 
     if (status) {
-        status.textContent = `${product.name} is selected for return.`;
+        status.textContent = `${product.name} נבחר להחזרה.`;
     }
 
     if (summaryStrong) {
@@ -1102,11 +1465,26 @@ function updateReturnPreview() {
     }
 }
 
+/**
+ * Increments the local inventory count for a returned product by 1 and
+ * saves the updated state.
+ *
+ * @param {string} productId
+ */
 function incrementInventoryForReturn(productId) {
     appState.inventory[productId] = getInventoryStock(productId) + 1;
     saveInventoryState();
 }
 
+// ===== Inventory Management Page =====
+
+/**
+ * Renders the inventory management page shell, which contains a section
+ * selector dropdown and an empty panel placeholder populated asynchronously
+ * by loadInventoryDashboardData().
+ *
+ * @returns {string} HTML string
+ */
 function renderInventoryManagementPage() {
     return `
         <section class="page-hero card">
@@ -1136,58 +1514,19 @@ function renderInventoryManagementPage() {
             <div id="inventory-dashboard-panel" class="inventory-dashboard-panel"></div>
         </section>
 
-        <style>
-            .action-button {
-                padding: 6px 12px;
-                font-size: 0.9rem;
-                border: 1px solid #ddd;
-                border-radius: 8px;
-                background: white;
-                cursor: pointer;
-                margin-right: 5px;
-            }
-            .action-button:hover {
-                background: #f5f5f5;
-            }
-            .modal {
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 1000;
-            }
-            .modal-content {
-                background: white;
-                padding: 30px;
-                border-radius: 12px;
-                max-width: 400px;
-                width: 90%;
-            }
-            .modal-content h2 {
-                margin-top: 0;
-            }
-            .modal-content input,
-            .modal-content select {
-                width: 100%;
-                padding: 10px;
-                margin: 10px 0;
-                border: 1px solid #ccc;
-                border-radius: 6px;
-                font-size: 1rem;
-            }
-        </style>
     `;
 }
 
+/**
+ * Fetches all orders from /api/orders, computes a dashboard summary via
+ * buildInventoryDashboardSummary(), and triggers a panel re-render. Uses a
+ * monotonically increasing dashboardFetchId to discard responses from
+ * superseded fetches.
+ *
+ * @returns {Promise<void>}
+ */
 async function loadInventoryDashboardData() {
-    const requestId = ++inventoryDashboardRequestId;
-    const rentalsList = document.getElementById('inventory-active-rentals-list');
-    const rentalsNote = document.getElementById('inventory-rentals-note');
+    const requestId = ++dashboardFetchId;
 
     try {
         const response = await fetch('/api/orders');
@@ -1196,26 +1535,34 @@ async function loadInventoryDashboardData() {
         }
 
         const orders = await response.json();
-        if (requestId !== inventoryDashboardRequestId) {
+        if (requestId !== dashboardFetchId) {
             return;
         }
 
         const summary = buildInventoryDashboardSummary(orders);
-        inventoryDashboardSummary = summary;
+        dashboardSummary = summary;
         renderInventoryDashboardView();
     } catch (error) {
-        if (requestId !== inventoryDashboardRequestId) {
+        if (requestId !== dashboardFetchId) {
             return;
         }
 
-        inventoryDashboardSummary = null;
+        dashboardSummary = null;
         renderInventoryDashboardView(true);
     }
 }
 
+/**
+ * Processes a raw orders array into aggregate statistics used by the dashboard:
+ * active rentals (items whose rental period has not yet expired), total rented
+ * units, total sold units, and total sales revenue.
+ *
+ * @param {Array<Object>} orders - Order objects returned by /api/orders
+ * @returns {{ activeRentals: Array, rentedUnits: number, soldUnits: number, salesRevenue: number }}
+ */
 function buildInventoryDashboardSummary(orders) {
     const now = Date.now();
-    const dayMs = 24 * 60 * 60 * 1000;
+    const msPerDay = 24 * 60 * 60 * 1000;
     const activeRentals = [];
     let soldUnits = 0;
     let salesRevenue = 0;
@@ -1233,11 +1580,11 @@ function buildInventoryDashboardSummary(orders) {
 
             if (product.type === 'rent') {
                 const startedAt = new Date(order.createdAt || Date.now()).getTime();
-                const dueAt = startedAt + (rentDays * dayMs);
+                const dueAt = startedAt + (rentDays * msPerDay);
                 const remainingMs = dueAt - now;
 
                 if (remainingMs > 0) {
-                    const remainingDays = Math.max(1, Math.ceil(remainingMs / dayMs));
+                    const remainingDays = Math.max(1, Math.ceil(remainingMs / msPerDay));
                     rentedUnits += quantity;
                     activeRentals.push({
                         orderId: order.id,
@@ -1267,6 +1614,13 @@ function buildInventoryDashboardSummary(orders) {
     };
 }
 
+/**
+ * Writes the latest summary values into the stat card elements already in
+ * the DOM. Each element is addressed by ID. No-ops gracefully when elements
+ * are not present (e.g. when a different section is active).
+ *
+ * @param {{ activeRentals: Array, rentedUnits: number, soldUnits: number, salesRevenue: number }} summary
+ */
 function updateInventoryDashboard(summary) {
     const activeRentalsValue = document.getElementById('inventory-active-rentals');
     const rentedUnitsValue = document.getElementById('inventory-rented-units');
@@ -1290,6 +1644,13 @@ function updateInventoryDashboard(summary) {
     }
 }
 
+/**
+ * Re-renders the #inventory-dashboard-panel div using the current values of
+ * activeDashboardSection and dashboardSummary. Also syncs the section select
+ * dropdown to match activeDashboardSection.
+ *
+ * @param {boolean} [isError=false] - When true, renders error states in the panel
+ */
 function renderInventoryDashboardView(isError = false) {
     const panel = document.getElementById('inventory-dashboard-panel');
     const select = document.getElementById('inventory-section-select');
@@ -1298,11 +1659,22 @@ function renderInventoryDashboardView(isError = false) {
         return;
     }
 
-    select.value = inventoryDashboardSection;
-    const section = inventoryDashboardSection || 'summary';
-    panel.innerHTML = renderInventoryDashboardPanel(section, inventoryDashboardSummary, isError);
+    select.value = activeDashboardSection;
+    const section = activeDashboardSection || 'summary';
+    panel.innerHTML = renderInventoryDashboardPanel(section, dashboardSummary, isError);
 }
 
+/**
+ * Returns the HTML for one of three dashboard sections:
+ * - 'rentals': table of currently active rental orders
+ * - 'inventory': editable product table with edit/remove buttons and add modal
+ * - 'summary' (default): four aggregate stat cards
+ *
+ * @param {'summary'|'rentals'|'inventory'} section
+ * @param {Object|null} summary - Output of buildInventoryDashboardSummary, or null on error
+ * @param {boolean} [isError=false]
+ * @returns {string} HTML string
+ */
 function renderInventoryDashboardPanel(section, summary, isError = false) {
     if (section === 'rentals') {
         const rentals = summary?.activeRentals || [];
@@ -1336,7 +1708,7 @@ function renderInventoryDashboardPanel(section, summary, isError = false) {
         const inventoryRows = PRODUCTS.map((product) => {
             const stock = getInventoryStock(product.id);
             const statusClass = stock <= 2 ? 'stock-low' : 'stock-ok';
-            const statusText = stock <= 2 ? 'Low' : 'Healthy';
+            const statusText = stock <= 2 ? 'נמוך' : 'תקין';
             return `
                 <tr data-product-id="${product.id}">
                     <td>${escapeHtml(product.name)}</td>
@@ -1344,8 +1716,8 @@ function renderInventoryDashboardPanel(section, summary, isError = false) {
                     <td>${stock}</td>
                     <td><span class="stock-pill ${statusClass}">${statusText}</span></td>
                     <td>
-                        <button class="action-button edit-stock-btn" data-product-id="${product.id}" data-product-name="${escapeHtml(product.name)}">✏️ Edit</button>
-                        <button class="action-button remove-product-btn" data-product-id="${product.id}" data-product-name="${escapeHtml(product.name)}">❌ Remove</button>
+                        <button class="action-button edit-stock-btn" data-product-id="${product.id}" data-product-name="${escapeHtml(product.name)}">✏️ עריכה</button>
+                        <button class="action-button remove-product-btn" data-product-id="${product.id}" data-product-name="${escapeHtml(product.name)}">❌ הסרה</button>
                     </td>
                 </tr>
             `;
@@ -1357,7 +1729,7 @@ function renderInventoryDashboardPanel(section, summary, isError = false) {
                     <span class="eyebrow">ניהול מלאי</span>
                     <h3>עריכה, הוספה והסרה</h3>
                 </div>
-                <button class="primary-button" id="add-product-btn">➕ Add New Product</button>
+                <button class="primary-button" id="add-product-btn">➕ הוסף מוצר חדש</button>
             </div>
 
             <div class="table-wrap">
@@ -1368,7 +1740,7 @@ function renderInventoryDashboardPanel(section, summary, isError = false) {
                             <th>סוג</th>
                             <th>מלאי</th>
                             <th>סטטוס</th>
-                            <th>Actions</th>
+                            <th>פעולות</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1379,19 +1751,19 @@ function renderInventoryDashboardPanel(section, summary, isError = false) {
 
             <div id="edit-stock-modal" class="modal" style="display: none;">
                 <div class="modal-content">
-                    <h2>Edit Stock Level</h2>
+                    <h2>עדכון מלאי</h2>
                     <form id="edit-stock-form">
                         <div>
-                            <label>Product Name</label>
+                            <label>שם המוצר</label>
                             <input type="text" id="edit-product-name" readonly style="background: #f0f0f0;">
                         </div>
                         <div>
-                            <label>Stock Quantity</label>
+                            <label>כמות במלאי</label>
                             <input type="number" id="edit-stock-input" min="0" required>
                         </div>
                         <div style="display: flex; gap: 10px; margin-top: 20px;">
-                            <button type="submit" class="primary-button">Save</button>
-                            <button type="button" class="secondary-button" onclick="closeEditModal()">Cancel</button>
+                            <button type="submit" class="primary-button">שמירה</button>
+                            <button type="button" class="secondary-button" onclick="closeEditModal()">ביטול</button>
                         </div>
                     </form>
                 </div>
@@ -1399,31 +1771,31 @@ function renderInventoryDashboardPanel(section, summary, isError = false) {
 
             <div id="add-product-modal" class="modal" style="display: none;">
                 <div class="modal-content">
-                    <h2>Add New Product</h2>
+                    <h2>הוספת מוצר חדש</h2>
                     <form id="add-product-form">
                         <div>
-                            <label>Product Name</label>
+                            <label>שם המוצר</label>
                             <input type="text" id="new-product-name" required>
                         </div>
                         <div>
-                            <label>Type</label>
+                            <label>סוג</label>
                             <select id="new-product-type" required>
-                                <option value="">Select...</option>
-                                <option value="rent">Rental (השכרה)</option>
-                                <option value="buy">Purchase (רכישה)</option>
+                                <option value="">בחר...</option>
+                                <option value="rent">השכרה</option>
+                                <option value="buy">רכישה</option>
                             </select>
                         </div>
                         <div>
-                            <label>Initial Stock</label>
+                            <label>מלאי התחלתי</label>
                             <input type="number" id="new-product-stock" min="0" value="0" required>
                         </div>
                         <div>
-                            <label>Price (₪)</label>
+                            <label>מחיר (₪)</label>
                             <input type="number" id="new-product-price" min="0" step="0.01" value="0" required>
                         </div>
                         <div style="display: flex; gap: 10px; margin-top: 20px;">
-                            <button type="submit" class="primary-button">Add Product</button>
-                            <button type="button" class="secondary-button" onclick="closeAddModal()">Cancel</button>
+                            <button type="submit" class="primary-button">הוסף מוצר</button>
+                            <button type="button" class="secondary-button" onclick="closeAddModal()">ביטול</button>
                         </div>
                     </form>
                 </div>
@@ -1462,6 +1834,12 @@ function renderInventoryDashboardPanel(section, summary, isError = false) {
     `;
 }
 
+/**
+ * Populates the #inventory-active-rentals-list element with rental row cards.
+ * Renders an empty-state div when the list is empty.
+ *
+ * @param {Array} activeRentals
+ */
 function renderInventoryRentalsList(activeRentals) {
     const rentalsList = document.getElementById('inventory-active-rentals-list');
     if (!rentalsList) {
@@ -1492,6 +1870,15 @@ function renderInventoryRentalsList(activeRentals) {
     `;
 }
 
+// ===== Utilities =====
+
+/**
+ * Formats an ISO date string into a Hebrew locale short date (he-IL).
+ * Returns '-' for null, undefined, or unparseable input.
+ *
+ * @param {string|null} value - ISO 8601 date string
+ * @returns {string}
+ */
 function formatDate(value) {
     if (!value) {
         return '-';
@@ -1505,6 +1892,13 @@ function formatDate(value) {
     return date.toLocaleDateString('he-IL');
 }
 
+/**
+ * Escapes HTML special characters in value to prevent XSS when inserting
+ * dynamic content into innerHTML.
+ *
+ * @param {*} value - Any value; coerced to string
+ * @returns {string}
+ */
 function escapeHtml(value) {
     return String(value)
         .replaceAll('&', '&amp;')
@@ -1514,7 +1908,17 @@ function escapeHtml(value) {
         .replaceAll("'", '&#39;');
 }
 
-function processReturnCompletionIfPossible() {
+// ===== Return Flow =====
+
+/**
+ * Reads and validates all fields on the return form. Returns a data object
+ * when every required field (first name, last name, product selection, and
+ * an uploaded image file) is present; shows an appropriate error notice and
+ * returns null when any field is missing.
+ *
+ * @returns {{ firstName: string, lastName: string, product: Object, selectedFile: File }|null}
+ */
+function collectReturnFormData() {
     const select = document.querySelector('[data-return-product-select]');
     const fileInput = document.querySelector('[data-return-file-input]');
     const firstNameInput = document.querySelector('input[name="returnFirstName"]');
@@ -1546,6 +1950,12 @@ function processReturnCompletionIfPossible() {
     };
 }
 
+/**
+ * Increments the returned product's inventory and shows a success notice.
+ * No-ops silently when product is null.
+ *
+ * @param {Object|null} product
+ */
 function finalizeReturn(product) {
     if (!product) {
         return;
@@ -1556,7 +1966,16 @@ function finalizeReturn(product) {
     renderCurrentRoute('return');
 }
 
-function maybeHandleReturnLockerCommand(command) {
+/**
+ * Handles a locker button command ('open' or 'close') from the return page.
+ * 'open' sends the servo command and updates the status message.
+ * 'close' first validates the return form via collectReturnFormData(); if
+ * valid, sends the servo command and finalises the return.
+ *
+ * @param {'open'|'close'} command
+ * @returns {boolean} Always true — the command is fully handled by this function
+ */
+function handleReturnLockerCommand(command) {
     if (command === 'open') {
         sendLockerServoCommand('open');
         appState.lockerOpen = true;
@@ -1569,7 +1988,7 @@ function maybeHandleReturnLockerCommand(command) {
     }
 
     if (command === 'close') {
-        const returnData = processReturnCompletionIfPossible();
+        const returnData = collectReturnFormData();
         if (!returnData) {
             return true;
         }
@@ -1583,36 +2002,70 @@ function maybeHandleReturnLockerCommand(command) {
     return false;
 }
 
+/**
+ * Dispatches a locker command when the active route is the return page.
+ * Delegates to handleReturnLockerCommand; falls back to
+ * operateLockerFromCurrentPage for any unrecognised command.
+ *
+ * @param {'open'|'close'} command
+ */
 function operateLockerFromReturnPage(command) {
-    if (maybeHandleReturnLockerCommand(command)) {
+    if (handleReturnLockerCommand(command)) {
         return;
     }
 
     operateLockerFromCurrentPage(command);
 }
 
+/**
+ * Reads the last checkout session from localStorage and returns a one-line
+ * Hebrew summary string for display in the locker context area.
+ *
+ * @returns {string}
+ */
 function createLockerContextSummary() {
-    const checkoutContext = loadStoredJson('aguda2go.checkoutContext', null);
+    const checkoutContext = loadStoredJson('agugo.checkoutContext', null);
     if (!checkoutContext) {
-        return 'No recent checkout session found.';
+        return 'לא נמצאה הזמנה אחרונה.';
     }
 
-    return `Last payment: ${checkoutContext.customerName} via ${checkoutContext.provider}`;
+    return `תשלום אחרון: ${checkoutContext.customerName} באמצעות ${checkoutContext.provider}`;
 }
 
+/**
+ * Returns an HTML-escaped version of the locker context summary string.
+ *
+ * @returns {string}
+ */
 function renderLockerContextMessage() {
     return escapeHtml(createLockerContextSummary());
 }
 
+/**
+ * Returns a stock status badge HTML snippet. Stock ≤ 2 yields a 'נמוך'
+ * (low) badge; higher stock yields a 'תקין' (ok) badge.
+ *
+ * @param {number} stock
+ * @returns {string} HTML string
+ */
 function renderInventoryStatusBadge(stock) {
-    return stock <= 2 ? '<span class="stock-pill stock-low">Low</span>' : '<span class="stock-pill stock-ok">Healthy</span>';
+    return stock <= 2 ? '<span class="stock-pill stock-low">נמוך</span>' : '<span class="stock-pill stock-ok">תקין</span>';
 }
 
+// ===== Legacy / Unused Stubs =====
+
+/**
+ * Processes a locker command for the currently active route. Delegates to
+ * the return-page handler when on the return route, otherwise to the default
+ * locker handler.
+ *
+ * @param {'open'|'close'} command
+ */
 function processPageSpecificCommands(command) {
     const currentRoute = getRouteFromHash();
 
     if (currentRoute === 'return') {
-        const handled = maybeHandleReturnLockerCommand(command);
+        const handled = handleReturnLockerCommand(command);
         if (handled) {
             return;
         }
@@ -1621,16 +2074,29 @@ function processPageSpecificCommands(command) {
     operateLockerFromCurrentPage(command);
 }
 
+/** Triggers a re-render of the current route without changing the hash. */
 function renderInitialRouteIfNeeded() {
     const route = getRouteFromHash();
     renderCurrentRoute(route);
 }
 
+/**
+ * Increments inventory for the product currently selected in the return form.
+ * Convenience wrapper used by supplemental handlers.
+ */
 function updateReturnProductStockAfterClose(productId) {
     incrementInventoryForReturn(productId);
     saveInventoryState();
 }
 
+/**
+ * Alternative checkout payment processor. Validates the form, checks stock,
+ * deducts inventory, saves context, clears the cart, and navigates to the
+ * locker page. Mirrors processMockPayment but saves a slightly different
+ * context shape.
+ *
+ * @param {string} provider
+ */
 function processCheckoutPayment(provider) {
     const checkoutForm = document.querySelector('[data-checkout-form]');
     if (!checkoutForm) {
@@ -1641,12 +2107,12 @@ function processCheckoutPayment(provider) {
     const lastName = checkoutForm.querySelector('input[name="lastName"]').value.trim();
 
     if (!firstName || !lastName) {
-        showNotice('First Name and Last Name are required.', 'error');
+        showNotice('שם פרטי ושם משפחה הם שדות חובה.', 'error');
         return;
     }
 
     if (appState.cart.length === 0) {
-        showNotice('Your cart is empty.', 'error');
+        showNotice('העגלה שלך ריקה.', 'error');
         navigateToRoute('cart');
         return;
     }
@@ -1663,7 +2129,7 @@ function processCheckoutPayment(provider) {
 
     appState.inventory = inventorySnapshot;
     saveInventoryState();
-    saveStoredJson('aguda2go.checkoutContext', {
+    saveStoredJson('agugo.checkoutContext', {
         firstName,
         lastName,
         paymentProvider: provider,
@@ -1676,6 +2142,14 @@ function processCheckoutPayment(provider) {
     navigateToRoute('locker');
 }
 
+/**
+ * Handles a data-action click by routing it to the correct handler.
+ * Returns true when the action was handled, false otherwise.
+ *
+ * @param {string} action - Value of data-action on the clicked element
+ * @param {DOMStringMap} dataset - The element's dataset
+ * @returns {boolean}
+ */
 function processRouteAction(action, dataset) {
     if (action === 'locker-control') {
         if (getRouteFromHash() === 'return') {
@@ -1695,6 +2169,7 @@ function processRouteAction(action, dataset) {
     return false;
 }
 
+/** Attaches a supplemental delegated click listener for route actions. */
 function attachRouteActionDelegation() {
     document.addEventListener('click', (event) => {
         const actionButton = event.target.closest('[data-action]');
@@ -1710,11 +2185,25 @@ function attachRouteActionDelegation() {
     });
 }
 
+/**
+ * Renders the given route into the main content slot, preserving any
+ * existing app state.
+ *
+ * @param {string} route
+ */
 function renderRouteAndKeepState(route) {
     const safeRoute = ROUTES.has(route) ? route : getDefaultRoute();
     renderCurrentRoute(safeRoute);
 }
 
+/**
+ * Builds a simple delta descriptor object used when updating a single
+ * product's inventory count.
+ *
+ * @param {string} productId
+ * @param {number} delta
+ * @returns {{ productId: string, delta: number }}
+ */
 function buildInventoryUpdateMap(productId, delta) {
     return {
         productId,
@@ -1722,6 +2211,10 @@ function buildInventoryUpdateMap(productId, delta) {
     };
 }
 
+/**
+ * Reads the currently selected product from the return form and increments
+ * its inventory. Used as a convenience wrapper by supplemental handlers.
+ */
 function updateReturnInventoryFromSelection() {
     const select = document.querySelector('[data-return-product-select]');
     if (!select) {
@@ -1732,8 +2225,13 @@ function updateReturnInventoryFromSelection() {
     updateReturnProductStockAfterClose(productId);
 }
 
+/**
+ * Finalises a return triggered by the locker-close command: validates the
+ * form, sends the servo command, increments inventory, saves state, and
+ * shows a success notice.
+ */
 function handleReturnCloseCommand() {
-    const returnData = processReturnCompletionIfPossible();
+    const returnData = collectReturnFormData();
     if (!returnData) {
         return;
     }
@@ -1746,6 +2244,14 @@ function handleReturnCloseCommand() {
     renderCurrentRoute('return');
 }
 
+/**
+ * Routes a locker command on the return page to the appropriate sub-handler.
+ * 'close' triggers handleReturnCloseCommand; 'open' sends the open command
+ * and shows a notice.
+ *
+ * @param {'open'|'close'} command
+ * @returns {boolean} true when the command was handled
+ */
 function maybeUpdateReturnStatusFromCommand(command) {
     if (command === 'close') {
         handleReturnCloseCommand();
@@ -1755,24 +2261,33 @@ function maybeUpdateReturnStatusFromCommand(command) {
     if (command === 'open') {
         sendLockerServoCommand('open');
         appState.lockerOpen = true;
-        showNotice('Return locker opened.', 'success');
+        showNotice('לוקר ההחזרה נפתח.', 'success');
         return true;
     }
 
     return false;
 }
 
+/** Placeholder for future shared behaviour wired up at startup. */
 function attachSupplementalHandlers() {
     // Intentionally left blank for future shared behavior.
 }
 
-// ===== Inventory Management Functions =====
+// ===== Inventory Management Modal Functions =====
 
+/**
+ * Opens the edit-stock modal and pre-fills it with the given product's name
+ * and current stock level. Stores the productId on the stock input via
+ * dataset for use by handleEditStockSubmit().
+ *
+ * @param {string} productId
+ * @param {string} productName
+ */
 function openEditModal(productId, productName) {
     const modal = document.getElementById('edit-stock-modal');
     const nameField = document.getElementById('edit-product-name');
     const stockField = document.getElementById('edit-stock-input');
-    
+
     if (modal && nameField && stockField) {
         nameField.value = productName;
         stockField.value = getInventoryStock(productId);
@@ -1781,6 +2296,10 @@ function openEditModal(productId, productName) {
     }
 }
 
+/**
+ * Closes the edit-stock modal by setting its display style to 'none'.
+ * Exposed on window so it can be called from the inline onclick attribute.
+ */
 function closeEditModal() {
     const modal = document.getElementById('edit-stock-modal');
     if (modal) {
@@ -1788,6 +2307,9 @@ function closeEditModal() {
     }
 }
 
+/**
+ * Opens the add-product modal and resets its form fields to their defaults.
+ */
 function openAddModal() {
     const modal = document.getElementById('add-product-modal');
     const form = document.getElementById('add-product-form');
@@ -1797,6 +2319,10 @@ function openAddModal() {
     }
 }
 
+/**
+ * Closes the add-product modal. Exposed on window so it can be called from
+ * the inline onclick attribute.
+ */
 function closeAddModal() {
     const modal = document.getElementById('add-product-modal');
     if (modal) {
@@ -1804,10 +2330,16 @@ function closeAddModal() {
     }
 }
 
+/**
+ * Reads the edit-stock modal fields, validates the new stock value, updates
+ * appState.inventory, persists to localStorage, shows a notice, closes the
+ * modal, and re-renders the inventory page.
+ * Triggered by the edit-stock form submit event.
+ */
 function handleEditStockSubmit() {
     const stockField = document.getElementById('edit-stock-input');
     if (!stockField || !stockField.dataset.productId) {
-        showNotice('Error: Product ID not found', 'error');
+        showNotice('שגיאה: מזהה מוצר לא נמצא', 'error');
         return;
     }
 
@@ -1815,18 +2347,24 @@ function handleEditStockSubmit() {
     const newStock = parseInt(stockField.value, 10);
 
     if (isNaN(newStock) || newStock < 0) {
-        showNotice('Please enter a valid stock number', 'error');
+        showNotice('אנא הזן כמות מלאי חוקית', 'error');
         return;
     }
 
     appState.inventory[productId] = newStock;
     saveStoredJson(STORAGE_KEYS.inventory, appState.inventory);
-    
-    showNotice(`Stock updated! ${PRODUCTS.find(p => p.id === productId)?.name || productId} now has ${newStock} units.`, 'success');
+
+    showNotice(`המלאי עודכן! ${PRODUCTS.find(p => p.id === productId)?.name || productId} כעת: ${newStock} יחידות.`, 'success');
     closeEditModal();
     renderCurrentRoute('inventory');
 }
 
+/**
+ * Reads the add-product modal fields, validates all inputs, creates a new
+ * product entry in PRODUCTS, adds it to appState.inventory, persists state,
+ * shows a notice, closes the modal, and re-renders the inventory page.
+ * Triggered by the add-product form submit event.
+ */
 function handleAddProductSubmit() {
     const nameField = document.getElementById('new-product-name');
     const typeField = document.getElementById('new-product-type');
@@ -1834,7 +2372,7 @@ function handleAddProductSubmit() {
     const priceField = document.getElementById('new-product-price');
 
     if (!nameField || !typeField || !stockField || !priceField) {
-        showNotice('Form fields not found', 'error');
+        showNotice('שגיאה: שדות הטופס לא נמצאו', 'error');
         return;
     }
 
@@ -1844,29 +2382,28 @@ function handleAddProductSubmit() {
     const price = parseFloat(priceField.value);
 
     if (!name) {
-        showNotice('Please enter a product name', 'error');
+        showNotice('אנא הזן שם מוצר', 'error');
         return;
     }
     if (!type) {
-        showNotice('Please select a product type', 'error');
+        showNotice('אנא בחר סוג מוצר', 'error');
         return;
     }
     if (isNaN(stock) || stock < 0) {
-        showNotice('Please enter a valid stock quantity', 'error');
+        showNotice('אנא הזן כמות מלאי חוקית', 'error');
         return;
     }
     if (isNaN(price) || price < 0) {
-        showNotice('Please enter a valid price', 'error');
+        showNotice('אנא הזן מחיר חוקי', 'error');
         return;
     }
 
-    // Generate new product ID
     const newId = `p${String(PRODUCTS.length + 1).padStart(3, '0')}`;
-    
+
     const newProduct = {
         id: newId,
         name: name,
-        description: `${name} - Added ${new Date().toLocaleDateString()}`,
+        description: `${name} - נוסף ${new Date().toLocaleDateString('he-IL')}`,
         type: type === 'rent' ? 'rent' : 'buy',
         price: price,
         stock: stock,
@@ -1881,32 +2418,41 @@ function handleAddProductSubmit() {
     appState.inventory[newId] = stock;
     saveStoredJson(STORAGE_KEYS.inventory, appState.inventory);
 
-    showNotice(`✅ New product "${name}" added successfully!`, 'success');
+    showNotice(`✅ המוצר "${name}" נוסף בהצלחה!`, 'success');
     closeAddModal();
     renderCurrentRoute('inventory');
 }
 
+/**
+ * Removes a product from the PRODUCTS array and from appState.inventory,
+ * persists the updated inventory, shows a notice, and re-renders the
+ * inventory page.
+ *
+ * @param {string} productId
+ */
 function removeProduct(productId) {
     const product = PRODUCTS.find((p) => p.id === productId);
     if (!product) {
-        showNotice('Product not found', 'error');
+        showNotice('מוצר לא נמצא', 'error');
         return;
     }
 
-    // Remove from PRODUCTS array
     const index = PRODUCTS.indexOf(product);
     if (index > -1) {
         PRODUCTS.splice(index, 1);
     }
 
-    // Remove from inventory
     delete appState.inventory[productId];
     saveStoredJson(STORAGE_KEYS.inventory, appState.inventory);
 
-    showNotice(`🗑️ Product "${product.name}" removed from inventory`, 'success');
+    showNotice(`🗑️ המוצר "${product.name}" הוסר מהמלאי`, 'success');
     renderCurrentRoute('inventory');
 }
 
+/**
+ * Re-normalises appState.inventory to ensure it contains exactly the entries
+ * defined in PRODUCTS. Called once at startup after PRODUCTS is defined.
+ */
 function finalizeInventorySeed() {
     appState.inventory = ensureInventoryShape(appState.inventory);
 }
@@ -1914,5 +2460,6 @@ function finalizeInventorySeed() {
 finalizeInventorySeed();
 attachSupplementalHandlers();
 
+// Expose modal closers globally for inline onclick attributes in rendered HTML
 window.closeEditModal = closeEditModal;
 window.closeAddModal = closeAddModal;

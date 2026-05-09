@@ -295,7 +295,7 @@ app.get('/api/stats', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Aguda2Go dev server listening on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`AguGo dev server listening on http://localhost:${PORT}`));
 
 // Graceful shutdown
 process.on('SIGINT', () => {
