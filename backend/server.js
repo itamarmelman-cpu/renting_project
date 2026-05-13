@@ -126,8 +126,8 @@ app.post('/api/orders', async (req, res) => {
     // Insert order items and decrement inventory
     for (const item of order.items) {
       await dbRun(
-        'INSERT INTO order_items (orderId, productId, quantity, rentDays) VALUES (?, ?, ?, ?)',
-        [orderId, item.productId, item.quantity || 1, item.rentDays || 1]
+        'INSERT INTO order_items (orderId, productId, quantity, rentDays, unitPrice) VALUES (?, ?, ?, ?, ?)',
+        [orderId, item.productId, item.quantity || 1, item.rentDays || 1, item.unitPrice || 0]
       );
 
       // Decrement inventory

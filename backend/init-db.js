@@ -58,6 +58,7 @@ function initDatabase() {
                 productId TEXT NOT NULL,
                 quantity INTEGER NOT NULL DEFAULT 1,
                 rentDays INTEGER DEFAULT 1,
+                unitPrice REAL DEFAULT 0,
                 FOREIGN KEY (orderId) REFERENCES orders(id)
             )
         `, (err) => {
@@ -113,7 +114,7 @@ function migrateData(db) {
                     'REPLACE INTO orders (id, customerName, provider, total, status, locker, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
                 );
                 const itemStmt = db.prepare(
-                    'REPLACE INTO order_items (orderId, productId, quantity, rentDays) VALUES (?, ?, ?, ?)'
+                    'REPLACE INTO order_items (orderId, productId, quantity, rentDays, unitPrice) VALUES (?, ?, ?, ?, ?)'
                 );
 
                 data.orders.forEach((order) => {
@@ -134,7 +135,8 @@ function migrateData(db) {
                                 order.id,
                                 item.productId,
                                 item.quantity || 1,
-                                item.rentDays || 1
+                                item.rentDays || 1,
+                                item.unitPrice || 0
                             );
                         });
                     }
