@@ -1,5 +1,5 @@
 {
-  "name": "aguGo-server",
+  "name": "agugo-server",
   "version": "0.1.0",
   "description": "Lightweight API server for AguGo local development",
   "main": "backend/server.js",
