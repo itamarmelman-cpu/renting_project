@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="380" viewBox="0 0 900 380" role="img" aria-label="Aguda2Go logo">
+  <g>
+    <circle cx="372" cy="84" r="72" fill="#f26674"/>
+    <circle cx="450" cy="84" r="72" fill="#ffd86b"/>
+    <circle cx="528" cy="84" r="72" fill="#a8dce3"/>
+    <text x="450" y="275" direction="rtl" unicode-bidi="plaintext" text-anchor="middle" font-family="Arial, 'Helvetica Neue', sans-serif" font-size="148" font-weight="800" fill="#111111">אגודה</text>
+    <text x="450" y="328" text-anchor="middle" font-family="Arial, 'Helvetica Neue', sans-serif" font-size="34" font-weight="700" fill="#111111">אגודת הסטודנטים והסטודנטיות של האקדמית ת״ל אביב-יפו</text>
+  </g>
+</svg>
