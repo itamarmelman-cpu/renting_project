@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AguGo — Database ER Diagram</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f0f4f8;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 36px;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            color: #1a2e44;
+            letter-spacing: -0.5px;
+        }
+
+        header p {
+            margin-top: 8px;
+            color: #5a6a7a;
+            font-size: 1rem;
+        }
+
+        .diagram-card {
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+            padding: 40px 48px;
+            width: 100%;
+            max-width: 960px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .mermaid {
+            width: 100%;
+        }
+
+        .legend {
+            margin-top: 32px;
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .legend-item {
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+            padding: 14px 20px;
+            min-width: 180px;
+            text-align: center;
+        }
+
+        .legend-item h3 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #8a9ab0;
+            margin-bottom: 6px;
+        }
+
+        .legend-item p {
+            font-size: 0.95rem;
+            color: #1a2e44;
+            font-weight: 600;
+        }
+
+        footer {
+            margin-top: 40px;
+            color: #9aaabb;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>AguGo — Database Schema</h1>
+    <p>Entity Relationship Diagram · SQLite · Campus Locker System</p>
+</header>
+
+<div class="diagram-card">
+    <div class="mermaid">
+erDiagram
+    products {
+        TEXT id PK
+        TEXT name
+        TEXT type
+        REAL price
+        INTEGER stock
+        TEXT description
+        TEXT image
+        TEXT search_terms
+    }
+
+    orders {
+        TEXT id PK
+        TEXT customer_name
+        TEXT payment_provider
+        REAL total
+        TEXT status
+        TEXT created_at
+        TEXT updated_at
+    }
+
+    order_items {
+        INTEGER id PK
+        TEXT order_id FK
+        TEXT product_id FK
+        INTEGER quantity
+        INTEGER rent_days
+        REAL unit_price
+    }
+
+    returns {
+        TEXT id PK
+        TEXT first_name
+        TEXT last_name
+        TEXT product_id FK
+        TEXT product_name
+        TEXT returned_at
+    }
+
+    products ||--o{ order_items : "ordered in"
+    orders   ||--o{ order_items : "contains"
+    products ||--o{ returns     : "returned as"
+    </div>
+</div>
+
+<div class="legend">
+    <div class="legend-item">
+        <h3>Tables</h3>
+        <p>4 tables</p>
+    </div>
+    <div class="legend-item">
+        <h3>Products</h3>
+        <p>9 items</p>
+    </div>
+    <div class="legend-item">
+        <h3>Orders</h3>
+        <p>5 completed</p>
+    </div>
+    <div class="legend-item">
+        <h3>Returns</h3>
+        <p>2 recorded</p>
+    </div>
+</div>
+
+<footer>AguGo · Academic Prototype · Information Systems Project</footer>
+
+<script>
+    mermaid.initialize({ startOnLoad: true, theme: 'default', er: { diagramPadding: 40 } });
+</script>
+
+</body>
+</html>

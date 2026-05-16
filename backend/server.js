@@ -6,7 +6,6 @@ const path = require('path');
 const DB_PATH = path.join(__dirname, '../app.db');
 const STATIC_DIR = path.join(__dirname, '../frontend');
 
-// Initialize database connection pool
 const db = new sqlite3.Database(DB_PATH, (err) => {
   if (err) {
     console.error('Error opening database:', err.message);
@@ -15,10 +14,8 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
   console.log('Connected to SQLite database');
 });
 
-// Enable foreign keys
 db.run('PRAGMA foreign_keys = ON');
 
-// Utility function to run SQL with promises
 function dbRun(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.run(sql, params, function (err) {
@@ -48,17 +45,14 @@ function dbAll(sql, params = []) {
 
 const app = express();
 app.use(bodyParser.json());
-
-// Serve static files (the SPA)
 app.use(express.static(STATIC_DIR));
 
-// Simple ping
 app.get('/api/ping', (req, res) => res.json({ ok: true }));
 
 // ============ Inventory endpoints ============
 app.get('/api/inventory', async (req, res) => {
   try {
-    const rows = await dbAll('SELECT productId, stock FROM inventory');
+    const rows = await dbAll('SELECT id AS productId, stock FROM products');
     const inventory = {};
     rows.forEach((row) => {
       inventory[row.productId] = row.stock;
@@ -77,13 +71,9 @@ app.post('/api/inventory', async (req, res) => {
       return res.status(400).json({ error: 'Invalid inventory payload' });
     }
 
-    // Clear and replace inventory
-    await dbRun('DELETE FROM inventory');
-    const stmt = db.prepare('INSERT INTO inventory (productId, stock) VALUES (?, ?)');
     for (const [productId, stock] of Object.entries(inventory)) {
-      stmt.run(productId, stock);
+      await dbRun('UPDATE products SET stock = ? WHERE id = ?', [stock, productId]);
     }
-    stmt.finalize();
 
     res.json({ ok: true, inventory });
   } catch (err) {
@@ -100,43 +90,37 @@ app.post('/api/orders', async (req, res) => {
       return res.status(400).json({ error: 'Invalid order' });
     }
 
-    // Get next order ID
     const lastOrder = await dbGet('SELECT id FROM orders ORDER BY rowid DESC LIMIT 1');
     const nextNum = (lastOrder ? parseInt(lastOrder.id.split('_')[1]) : 0) + 1;
     const orderId = `ord_${String(nextNum).padStart(4, '0')}`;
 
     const now = new Date().toISOString();
 
-    // Insert order
     await dbRun(
-      `INSERT INTO orders (id, customerName, provider, total, status, locker, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO orders (id, customer_name, payment_provider, total, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         orderId,
         order.customerName || null,
         order.provider || 'Unknown',
         order.total || 0,
         'completed',
-        order.locker || null,
         now,
         now,
       ]
     );
 
-    // Insert order items and decrement inventory
     for (const item of order.items) {
       await dbRun(
-        'INSERT INTO order_items (orderId, productId, quantity, rentDays, unitPrice) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO order_items (order_id, product_id, quantity, rent_days, unit_price) VALUES (?, ?, ?, ?, ?)',
         [orderId, item.productId, item.quantity || 1, item.rentDays || 1, item.unitPrice || 0]
       );
 
-      // Decrement inventory
-      const current = await dbGet('SELECT stock FROM inventory WHERE productId = ?', [item.productId]);
+      const current = await dbGet('SELECT stock FROM products WHERE id = ?', [item.productId]);
       const newStock = Math.max(0, (current?.stock || 0) - (item.quantity || 1));
-      await dbRun('UPDATE inventory SET stock = ? WHERE productId = ?', [newStock, item.productId]);
+      await dbRun('UPDATE products SET stock = ? WHERE id = ?', [newStock, item.productId]);
     }
 
-    // Get the created order
     const createdOrder = await getOrderWithItems(orderId);
     res.json({ ok: true, order: createdOrder });
   } catch (err) {
@@ -145,23 +129,39 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
-// Helper function to get order with its items
 async function getOrderWithItems(orderId) {
-  const order = await dbGet('SELECT * FROM orders WHERE id = ?', [orderId]);
+  const order = await dbGet(
+    `SELECT id, customer_name AS customerName, payment_provider AS provider,
+            total, status, created_at AS createdAt, updated_at AS updatedAt
+     FROM orders WHERE id = ?`,
+    [orderId]
+  );
   if (!order) return null;
 
-  const items = await dbAll('SELECT * FROM order_items WHERE orderId = ?', [orderId]);
+  const items = await dbAll(
+    `SELECT id, order_id AS orderId, product_id AS productId,
+            quantity, rent_days AS rentDays, unit_price AS unitPrice
+     FROM order_items WHERE order_id = ?`,
+    [orderId]
+  );
   return { ...order, items };
 }
 
 app.get('/api/orders', async (req, res) => {
   try {
-    const orders = await dbAll('SELECT * FROM orders ORDER BY createdAt DESC');
-    
-    // Attach items to each order
+    const orders = await dbAll(
+      `SELECT id, customer_name AS customerName, payment_provider AS provider,
+              total, status, created_at AS createdAt, updated_at AS updatedAt
+       FROM orders ORDER BY created_at DESC`
+    );
+
     for (const order of orders) {
-      const items = await dbAll('SELECT * FROM order_items WHERE orderId = ?', [order.id]);
-      order.items = items;
+      order.items = await dbAll(
+        `SELECT id, order_id AS orderId, product_id AS productId,
+                quantity, rent_days AS rentDays, unit_price AS unitPrice
+         FROM order_items WHERE order_id = ?`,
+        [order.id]
+      );
     }
 
     res.json(orders);
@@ -186,7 +186,7 @@ app.get('/api/orders/:id', async (req, res) => {
 
 app.patch('/api/orders/:id', async (req, res) => {
   try {
-    const { status, locker } = req.body;
+    const { status } = req.body;
     const now = new Date().toISOString();
 
     const order = await dbGet('SELECT * FROM orders WHERE id = ?', [req.params.id]);
@@ -201,18 +201,12 @@ app.patch('/api/orders/:id', async (req, res) => {
       updates.push('status = ?');
       values.push(status);
     }
-    if (locker !== undefined) {
-      updates.push('locker = ?');
-      values.push(locker);
-    }
 
-    updates.push('updatedAt = ?');
+    updates.push('updated_at = ?');
     values.push(now);
 
-    if (updates.length > 0) {
-      values.push(req.params.id);
-      await dbRun(`UPDATE orders SET ${updates.join(', ')} WHERE id = ?`, values);
-    }
+    values.push(req.params.id);
+    await dbRun(`UPDATE orders SET ${updates.join(', ')} WHERE id = ?`, values);
 
     const updated = await getOrderWithItems(req.params.id);
     res.json({ ok: true, order: updated });
@@ -233,9 +227,8 @@ app.post('/api/returns', async (req, res) => {
     const returnId = `ret_${Date.now()}`;
     const now = new Date().toISOString();
 
-    // Insert return
     await dbRun(
-      `INSERT INTO returns (id, firstName, lastName, productId, productName, createdAt)
+      `INSERT INTO returns (id, first_name, last_name, product_id, product_name, returned_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [
         returnId,
@@ -247,10 +240,9 @@ app.post('/api/returns', async (req, res) => {
       ]
     );
 
-    // Increment inventory
-    const current = await dbGet('SELECT stock FROM inventory WHERE productId = ?', [ret.productId]);
+    const current = await dbGet('SELECT stock FROM products WHERE id = ?', [ret.productId]);
     const newStock = (current?.stock || 0) + 1;
-    await dbRun('UPDATE inventory SET stock = ? WHERE productId = ?', [newStock, ret.productId]);
+    await dbRun('UPDATE products SET stock = ? WHERE id = ?', [newStock, ret.productId]);
 
     res.json({ ok: true, returnId });
   } catch (err) {
@@ -261,7 +253,12 @@ app.post('/api/returns', async (req, res) => {
 
 app.get('/api/returns', async (req, res) => {
   try {
-    const returns = await dbAll('SELECT * FROM returns ORDER BY createdAt DESC');
+    const returns = await dbAll(
+      `SELECT id, first_name AS firstName, last_name AS lastName,
+              product_id AS productId, product_name AS productName,
+              returned_at AS createdAt
+       FROM returns ORDER BY returned_at DESC`
+    );
     res.json(returns);
   } catch (err) {
     console.error(err);
@@ -275,7 +272,7 @@ app.get('/api/stats', async (req, res) => {
     const totalOrdersRow = await dbGet('SELECT COUNT(*) as count FROM orders');
     const totalReturnsRow = await dbGet('SELECT COUNT(*) as count FROM returns');
     const totalItemsSoldRow = await dbGet('SELECT SUM(quantity) as total FROM order_items');
-    const inventoryRows = await dbAll('SELECT productId, stock FROM inventory');
+    const inventoryRows = await dbAll('SELECT id AS productId, stock FROM products');
 
     const inventory = {};
     inventoryRows.forEach((row) => {
@@ -294,10 +291,35 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
+// ============ Query explorer (dev only) ============
+app.post('/api/query', async (req, res) => {
+  const { sql } = req.body;
+  if (!sql || typeof sql !== 'string') {
+    return res.status(400).json({ error: 'No SQL provided' });
+  }
+  const trimmed = sql.trim().toUpperCase();
+  if (!trimmed.startsWith('SELECT') && !trimmed.startsWith('PRAGMA')) {
+    return res.status(400).json({ error: 'Only SELECT queries are allowed in the explorer' });
+  }
+  try {
+    const rows = await dbAll(sql);
+    res.json({ rows });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.get('/explorer', (req, res) => {
+  res.sendFile(path.join(__dirname, '../database/query.html'));
+});
+
+app.get('/er-diagram', (req, res) => {
+  res.sendFile(path.join(__dirname, '../database/er-diagram.html'));
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`AguGo dev server listening on http://localhost:${PORT}`));
 
-// Graceful shutdown
 process.on('SIGINT', () => {
   db.close();
   process.exit(0);

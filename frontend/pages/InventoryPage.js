@@ -147,8 +147,12 @@ export class InventoryPage {
         return `
             <section class="card inventory-dashboard-shell">
                 <div class="inventory-section-header">
-                    <div>
+                    <div style="display:flex; align-items:center; gap:16px;">
                         <h1>ניהול מלאי אגודה</h1>
+                        <a href="/explorer" target="_blank"
+                           style="display:inline-flex;align-items:center;gap:6px;background:#0d6677;color:#fff;padding:7px 16px;border-radius:8px;font-size:0.85rem;font-weight:600;text-decoration:none;">
+                            🗄 שאילתות SQL
+                        </a>
                     </div>
                     <label class="inventory-section-selector">
                         <span class="inventory-section-note">קטגוריה</span>
@@ -751,4 +755,5 @@ export class InventoryPage {
         const modal = document.querySelector(this.selectors.addModal);
         if (modal) modal.style.display = 'none';
     }
+
 }

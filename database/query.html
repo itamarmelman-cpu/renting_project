@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AguGo — שאילתות SQL</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    /* ── Design tokens (exact match to styles.css) ───────────────────── */
+    :root {
+      --color-bg:          #f8f9fa;
+      --color-header-bg:   #0e4156;
+      --color-surface:     #ffffff;
+      --color-ink:         #0e4156;
+      --color-ink-soft:    #4a6d7c;
+      --color-ink-muted:   #7e99a7;
+      --palette-teal:      #b9e1e3;
+      --palette-coral:     #f3888f;
+      --palette-mustard:   #fee195;
+      --color-accent:      #f06a73;
+      --color-accent-dark: #d15b63;
+      --color-border:      #feda7a;
+      --radius-lg:         20px;
+      --shadow-sm:         0 2px 4px rgba(42,36,27,.05);
+      --shadow:            0 6px 16px rgba(42,36,27,.08);
+      --shadow-lg:         0 16px 40px rgba(42,36,27,.12);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Rubik', sans-serif;
+      background: var(--color-bg);
+      color: var(--color-ink);
+      min-height: 100vh;
+      direction: rtl;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────── */
+    header {
+      background: var(--color-header-bg);
+      color: #fff;
+      padding: 16px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-title h1 {
+      font-size: 1.2rem;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: -0.01em;
+    }
+    .header-title p {
+      font-size: 0.8rem;
+      color: var(--palette-teal);
+      margin-top: 2px;
+      font-weight: 400;
+    }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 20px;
+      background: var(--palette-mustard);
+      color: var(--color-header-bg);
+      font-weight: 700;
+      font-size: 0.85rem;
+      border-radius: 50px;
+      text-decoration: none;
+      box-shadow: 0 4px 0 rgba(0,0,0,.15);
+      transition: transform .2s, box-shadow .2s;
+    }
+    .back-link:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 16px rgba(0,0,0,.2);
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────────── */
+    .page {
+      display: flex;
+      gap: 0;
+      min-height: calc(100vh - 65px);
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────── */
+    aside {
+      width: 270px;
+      flex-shrink: 0;
+      background: var(--color-surface);
+      border-left: 3px solid var(--color-border);
+      padding: 28px 16px;
+      overflow-y: auto;
+    }
+    .sidebar-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--color-ink-muted);
+      margin-bottom: 14px;
+      padding-right: 4px;
+    }
+    .preset-btn {
+      display: block;
+      width: 100%;
+      text-align: right;
+      background: var(--color-surface);
+      border: 2px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: 11px 16px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      font-family: 'Rubik', sans-serif;
+      font-size: 0.84rem;
+      font-weight: 500;
+      color: var(--color-ink);
+      box-shadow: var(--shadow-sm);
+      transition: transform .2s, box-shadow .2s, border-color .15s, background .15s;
+      line-height: 1.4;
+    }
+    .preset-btn:hover {
+      border-color: var(--color-accent);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 14px rgba(42,36,27,.1);
+    }
+    .preset-btn.active {
+      background: var(--palette-mustard);
+      border-color: var(--color-accent);
+      color: var(--color-ink);
+      font-weight: 700;
+      box-shadow: 0 4px 0 rgba(0,0,0,.12);
+    }
+    .preset-btn small {
+      display: block;
+      font-size: 0.74rem;
+      font-weight: 400;
+      color: var(--color-ink-muted);
+      margin-top: 3px;
+    }
+    .preset-btn.active small { color: var(--color-ink-soft); }
+
+    /* ── Main area ───────────────────────────────────────────────────── */
+    main {
+      flex: 1;
+      padding: 32px 36px;
+      overflow: auto;
+    }
+
+    .field-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--color-ink-muted);
+      margin-bottom: 8px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 140px;
+      background: #0d1b2a;
+      color: #c9d1d9;
+      border: 3px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      font-family: 'Menlo', 'Consolas', 'Courier New', monospace;
+      font-size: 0.87rem;
+      line-height: 1.7;
+      resize: vertical;
+      direction: ltr;
+      text-align: left;
+      box-shadow: var(--shadow-sm);
+      transition: border-color .2s;
+    }
+    textarea:focus { outline: none; border-color: var(--palette-teal); }
+
+    /* ── Schema cards (below textarea) ──────────────────────────────── */
+    .schema-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin: 14px 0;
+      direction: ltr;
+    }
+    .schema-card {
+      background: var(--color-surface);
+      border: 2px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+    .schema-card-header {
+      background: var(--color-header-bg);
+      color: #fff;
+      padding: 8px 14px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      letter-spacing: -0.01em;
+    }
+    .schema-col {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 6px;
+      padding: 5px 12px;
+      border-bottom: 1px solid #f5f0e8;
+      font-size: 0.73rem;
+      align-items: center;
+    }
+    .schema-col:last-child { border-bottom: none; }
+    .col-name { font-family: monospace; font-weight: 700; color: var(--color-ink); }
+    .col-type { font-family: monospace; color: var(--color-ink-muted); font-size: 0.68rem; }
+    .badge-pk {
+      background: var(--palette-mustard);
+      color: var(--color-header-bg);
+      padding: 1px 6px;
+      border-radius: 50px;
+      font-size: 0.62rem;
+      font-weight: 700;
+    }
+    .badge-fk {
+      background: var(--palette-teal);
+      color: var(--color-header-bg);
+      padding: 1px 6px;
+      border-radius: 50px;
+      font-size: 0.62rem;
+      font-weight: 700;
+    }
+
+    /* ── Run button row ──────────────────────────────────────────────── */
+    .run-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 4px 0 24px;
+    }
+    .run-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 32px;
+      background: var(--color-accent);
+      color: #fff;
+      font-family: 'Rubik', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 50px;
+      box-shadow: 0 4px 0 rgba(0,0,0,.15);
+      cursor: pointer;
+      transition: transform .2s, box-shadow .2s, background .15s;
+    }
+    .run-btn:hover {
+      background: var(--color-accent-dark);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 20px rgba(0,0,0,.15);
+    }
+    .run-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 rgba(0,0,0,.1);
+    }
+    .run-btn:disabled { background: var(--color-ink-muted); cursor: default; transform: none; box-shadow: none; }
+    .hint    { font-size: 0.78rem; color: var(--color-ink-muted); }
+    .err-msg { font-size: 0.84rem; color: var(--color-accent); font-weight: 600; }
+
+    /* ── Results ─────────────────────────────────────────────────────── */
+    .results-meta {
+      font-size: 0.78rem;
+      color: var(--color-ink-muted);
+      margin-bottom: 10px;
+      font-weight: 500;
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: var(--radius-lg);
+      border: 2px solid var(--color-border);
+      background: var(--color-surface);
+      box-shadow: var(--shadow);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+      direction: ltr;
+      text-align: left;
+    }
+    thead tr {
+      background: var(--palette-mustard);
+    }
+    th {
+      padding: 10px 16px;
+      font-weight: 700;
+      color: var(--color-header-bg);
+      border-bottom: 2px solid var(--color-border);
+      white-space: nowrap;
+      font-size: 0.8rem;
+      letter-spacing: 0.01em;
+    }
+    td {
+      padding: 8px 16px;
+      border-bottom: 1px solid #f5f0e8;
+      color: var(--color-ink-soft);
+      font-family: 'Menlo', 'Consolas', monospace;
+      font-size: 0.78rem;
+    }
+    tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #fffbf2; }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px;
+      color: var(--color-ink-muted);
+      font-size: 0.9rem;
+      background: var(--color-surface);
+      border-radius: var(--radius-lg);
+      border: 2px dashed var(--color-border);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-title">
+    <h1>AguGo — שאילתות SQL</h1>
+    <p>גישה ישירה למסד הנתונים · SELECT בלבד</p>
+  </div>
+  <div style="display:flex; align-items:center; gap:20px;">
+    <div style="text-align:center; background:rgba(255,255,255,0.08); border-radius:14px; padding:8px 20px; border:2px solid rgba(185,225,227,0.3);">
+      <div id="clock-time" style="font-size:1.5rem; font-weight:900; color:#fff; letter-spacing:2px; line-height:1;"></div>
+      <div id="clock-label" style="font-size:0.68rem; color:var(--palette-teal); font-weight:500; margin-top:3px; letter-spacing:0.5px;"></div>
+    </div>
+    <a href="/" class="back-link">← חזרה לאתר</a>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- Sidebar -->
+  <aside>
+    <div class="sidebar-label">שאילתות מוכנות</div>
+
+    <button class="preset-btn" data-query="SELECT id, name, type, price, stock
+FROM products
+ORDER BY type, name">
+      כל המוצרים
+      <small>קטלוג + מלאי</small>
+    </button>
+
+    <button class="preset-btn" data-query="SELECT o.id, o.customer_name, o.total,
+       date(o.created_at) AS date,
+       COUNT(oi.id) AS items
+FROM orders o
+LEFT JOIN order_items oi ON oi.order_id = o.id
+GROUP BY o.id
+ORDER BY o.created_at DESC">
+      היסטוריית ההזמנות
+      <small>כל ההזמנות עם סיכום</small>
+    </button>
+
+    <button class="preset-btn" data-query="SELECT p.name          AS product,
+       o.customer_name AS customer,
+       oi.quantity,
+       oi.rent_days,
+       date(o.created_at)                          AS rented_on,
+       date(o.created_at, oi.rent_days || ' days') AS due_on,
+       CASE WHEN date(o.created_at, oi.rent_days || ' days') < date('now')
+            THEN 1 ELSE 0 END                      AS __overdue
+FROM order_items oi
+JOIN orders   o ON o.id = oi.order_id
+JOIN products p ON p.id = oi.product_id
+WHERE p.type = 'rent'
+  AND NOT EXISTS (
+    SELECT 1 FROM returns r
+    WHERE r.product_id = oi.product_id
+      AND r.first_name || ' ' || r.last_name = o.customer_name
+  )
+ORDER BY __overdue DESC, due_on ASC">
+      השכרות פעילות
+      <small>מי שכר מה ועד מתי</small>
+    </button>
+
+    <button class="preset-btn" data-query="SELECT first_name || ' ' || last_name AS customer,
+       product_name,
+       date(returned_at) AS returned_on
+FROM returns
+ORDER BY returned_at DESC">
+      היסטוריית החזרות
+      <small>כל ההחזרות שנרשמו</small>
+    </button>
+
+    <button class="preset-btn" data-query="SELECT p.name,
+       p.type,
+       SUM(oi.quantity) AS units_ordered
+FROM order_items oi
+JOIN products p ON p.id = oi.product_id
+GROUP BY p.id
+ORDER BY units_ordered DESC">
+      מוצרים פופולריים
+      <small>לפי יחידות שהוזמנו</small>
+    </button>
+
+    <button class="preset-btn" data-query="SELECT p.name          AS product,
+       o.customer_name AS customer,
+       date(o.created_at, oi.rent_days || ' days') AS due_on,
+       CAST(julianday('now') - julianday(o.created_at)
+            AS INTEGER) - oi.rent_days             AS days_late
+FROM order_items oi
+JOIN orders   o ON o.id = oi.order_id
+JOIN products p ON p.id = oi.product_id
+WHERE p.type = 'rent'
+  AND datetime(o.created_at, oi.rent_days || ' days') < datetime('now')
+ORDER BY days_late DESC">
+      פריטים באיחור
+      <small>השכרות שמועדן עבר</small>
+    </button>
+
+    <button class="preset-btn" data-query="SELECT strftime('%H:00', created_at) AS hour,
+       COUNT(*)                              AS orders
+FROM orders
+GROUP BY hour
+ORDER BY orders DESC, hour ASC">
+      שעת שיא
+      <small>באיזו שעה יש הכי הרבה הזמנות</small>
+    </button>
+  </aside>
+
+  <!-- Main -->
+  <main>
+    <div class="field-label">שאילתה חופשית</div>
+    <textarea id="sql-input" spellcheck="false" placeholder="SELECT * FROM products ..."></textarea>
+
+    <!-- Schema — directly under textarea -->
+    <div class="schema-grid">
+      <div class="schema-card">
+        <div class="schema-card-header">📦 products</div>
+        <div class="schema-col"><span class="col-name">id</span><span class="col-type">TEXT</span><span class="badge-pk">PK</span></div>
+        <div class="schema-col"><span class="col-name">name</span><span class="col-type">TEXT</span><span></span></div>
+        <div class="schema-col"><span class="col-name">type</span><span class="col-type">TEXT</span><span></span></div>
+        <div class="schema-col"><span class="col-name">price</span><span class="col-type">REAL</span><span></span></div>
+        <div class="schema-col"><span class="col-name">stock</span><span class="col-type">INTEGER</span><span></span></div>
+        <div class="schema-col"><span class="col-name">description</span><span class="col-type">TEXT</span><span></span></div>
+      </div>
+
+      <div class="schema-card">
+        <div class="schema-card-header">🧾 orders</div>
+        <div class="schema-col"><span class="col-name">id</span><span class="col-type">TEXT</span><span class="badge-pk">PK</span></div>
+        <div class="schema-col"><span class="col-name">customer_name</span><span class="col-type">TEXT</span><span></span></div>
+        <div class="schema-col"><span class="col-name">payment_provider</span><span class="col-type">TEXT</span><span></span></div>
+        <div class="schema-col"><span class="col-name">total</span><span class="col-type">REAL</span><span></span></div>
+        <div class="schema-col"><span class="col-name">status</span><span class="col-type">TEXT</span><span></span></div>
+        <div class="schema-col"><span class="col-name">created_at</span><span class="col-type">TEXT</span><span></span></div>
+      </div>
+
+      <div class="schema-card">
+        <div class="schema-card-header">📋 order_items</div>
+        <div class="schema-col"><span class="col-name">id</span><span class="col-type">INTEGER</span><span class="badge-pk">PK</span></div>
+        <div class="schema-col"><span class="col-name">order_id</span><span class="col-type">TEXT</span><span class="badge-fk">FK</span></div>
+        <div class="schema-col"><span class="col-name">product_id</span><span class="col-type">TEXT</span><span class="badge-fk">FK</span></div>
+        <div class="schema-col"><span class="col-name">quantity</span><span class="col-type">INTEGER</span><span></span></div>
+        <div class="schema-col"><span class="col-name">rent_days</span><span class="col-type">INTEGER</span><span></span></div>
+        <div class="schema-col"><span class="col-name">unit_price</span><span class="col-type">REAL</span><span></span></div>
+      </div>
+
+      <div class="schema-card">
+        <div class="schema-card-header">↩️ returns</div>
+        <div class="schema-col"><span class="col-name">id</span><span class="col-type">TEXT</span><span class="badge-pk">PK</span></div>
+        <div class="schema-col"><span class="col-name">first_name</span><span class="col-type">TEXT</span><span></span></div>
+        <div class="schema-col"><span class="col-name">last_name</span><span class="col-type">TEXT</span><span></span></div>
+        <div class="schema-col"><span class="col-name">product_id</span><span class="col-type">TEXT</span><span class="badge-fk">FK</span></div>
+        <div class="schema-col"><span class="col-name">product_name</span><span class="col-type">TEXT</span><span></span></div>
+        <div class="schema-col"><span class="col-name">returned_at</span><span class="col-type">TEXT</span><span></span></div>
+      </div>
+    </div>
+
+    <div class="run-row">
+      <button class="run-btn" id="run-btn">▶ הרץ שאילתה</button>
+      <span class="hint">Ctrl + Enter</span>
+      <span class="err-msg" id="err-msg"></span>
+    </div>
+
+    <div class="results-meta" id="results-meta"></div>
+    <div id="results-area"><div class="empty-state">בחר שאילתה מוכנה מהרשימה, או כתוב שאילתה חופשית והרץ אותה</div></div>
+  </main>
+
+</div>
+
+<script>
+  const sqlInput    = document.getElementById('sql-input');
+  const runBtn      = document.getElementById('run-btn');
+  const errMsg      = document.getElementById('err-msg');
+  const resultsMeta = document.getElementById('results-meta');
+  const resultsArea = document.getElementById('results-area');
+
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      sqlInput.value = btn.dataset.query;
+      runQuery();
+    });
+  });
+
+  runBtn.addEventListener('click', runQuery);
+  sqlInput.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runQuery();
+  });
+
+  async function runQuery() {
+    const sql = sqlInput.value.trim();
+    if (!sql) return;
+
+    runBtn.disabled = true;
+    errMsg.textContent = '';
+    resultsMeta.textContent = '';
+    resultsArea.innerHTML = '<div class="empty-state">מריץ שאילתה…</div>';
+
+    try {
+      const res  = await fetch('/api/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sql }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'שגיאה לא ידועה');
+
+      const rows = data.rows || [];
+      if (rows.length === 0) {
+        resultsMeta.textContent = '0 שורות';
+        resultsArea.innerHTML = '<div class="empty-state">השאילתה הצליחה — אין תוצאות</div>';
+        return;
+      }
+
+      const allCols = Object.keys(rows[0]);
+      const cols = allCols.filter(c => !c.startsWith('__'));
+      resultsMeta.textContent = `${rows.length} שורות · ${cols.length} עמודות`;
+
+      function fmtCell(col, val) {
+        if (val == null || val === '') return '';
+        const s = String(val);
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s) ||
+            (/_at$|^created_at$|^updated_at$|^returned_at$/.test(col) && /^\d{4}-\d{2}-\d{2}/.test(s))) {
+          const d = new Date(s);
+          if (!isNaN(d)) {
+            const date = d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const time = d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+            return `${date} ${time}`;
+          }
+        }
+        return esc(s);
+      }
+
+      resultsArea.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
+            <tbody>
+              ${rows.map(row => {
+                const overdue = row.__overdue === 1 || row.__overdue === '1';
+                const style = overdue ? ' style="background:#fff0f0; color:#c0392b;"' : '';
+                return `<tr${style}>${cols.map(c => `<td>${fmtCell(c, row[c] ?? '')}</td>`).join('')}</tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    } catch (e) {
+      errMsg.textContent = e.message;
+      resultsArea.innerHTML = '';
+    } finally {
+      runBtn.disabled = false;
+    }
+  }
+
+  // Live clock
+  function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2,'0');
+    const m = String(now.getMinutes()).padStart(2,'0');
+    const s = String(now.getSeconds()).padStart(2,'0');
+    document.getElementById('clock-time').textContent = `${h}:${m}:${s}`;
+    document.getElementById('clock-label').textContent =
+      now.toLocaleDateString('he-IL', { weekday:'long', day:'numeric', month:'long' });
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  function esc(v) {
+    return String(v)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+</body>
+</html>
