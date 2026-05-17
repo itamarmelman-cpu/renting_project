@@ -151,7 +151,6 @@ const products = [...PRODUCTS];
 // ===== Internal Shell / Routing State =====
 
 let _isShellMounted = false;
-let _noticeHideTimerId = null;
 let _currentRoute = 'catalog';
 
 /**
@@ -242,7 +241,6 @@ function renderAppShell() {
                 </div>
             </header>
 
-            <div class="app-notice" id="app-notice" hidden></div>
 
             <div class="fab-group" aria-label="תמיכה טכנית">
                 <a href="https://wa.me/972000000000"
@@ -295,16 +293,7 @@ function renderAppShell() {
                         <div class="footer-qa-list" id="footer-qa-list"></div>
                     </section>
                 </div>
-                <div class="footer-grid footer-grid-support">
-                    <section class="footer-support-section">
-                        <h3>תמיכה טכנית</h3>
-                        <p>נתקלת בבעיה טכנית? אנחנו כאן לעזור:</p>
-                        <div class="support-actions">
-                            <a href="mailto:support@agugo.placeholder" class="support-btn support-btn-email">✉️ שלח אימייל</a>
-                            <a href="https://wa.me/972000000000" class="support-btn support-btn-whatsapp">💬 WhatsApp</a>
-                        </div>
-                    </section>
-                </div>
+
                 <div class="footer-bottom">
                     <p class="copyright">© כל הזכויות שמורות - אב טיפוס לפרויקט מערכות מידע</p>
                 </div>
@@ -444,29 +433,6 @@ function updateCartBadge() {
         badge.textContent = String(count);
         badge.style.display = count === 0 ? 'none' : 'flex';
     }
-}
-
-// ===== Notice Banner =====
-
-/**
- * Displays a temporary auto-dismissing notice message at the top of the page.
- *
- * Implementation: Sets the notice element's text and data-tone attribute, makes
- * it visible, and schedules it to hide after 3.2 seconds. Any pending hide timer
- * is cancelled first so rapid consecutive calls each get a fresh timeout.
- *
- * @param {string} message - The message text to display.
- * @param {'info'|'success'|'error'} [tone='info'] - Visual style applied via data-tone.
- * @returns {void}
- */
-function showNotice(message, tone = 'info') {
-    const notice = document.getElementById('app-notice');
-    if (!notice) return;
-    notice.textContent = message;
-    notice.dataset.tone = tone;
-    notice.hidden = false;
-    window.clearTimeout(_noticeHideTimerId);
-    _noticeHideTimerId = window.setTimeout(() => { notice.hidden = true; }, 3200);
 }
 
 // ===== Footer FAQ =====
@@ -754,15 +720,9 @@ function getCartQuantity(id) {
  */
 function addProductToCart(productId) {
     const product = getProductById(productId);
-    if (!product) {
-        showNotice('מוצר לא נמצא.', 'error');
-        return;
-    }
+    if (!product) return;
 
-    if (getAvailableStock(productId) <= 0) {
-        showNotice('מוצר זה אינו זמין כרגע.', 'error');
-        return;
-    }
+    if (getAvailableStock(productId) <= 0) return;
 
     const cartItem = getCartItemByProductId(productId);
     if (cartItem) {
@@ -777,7 +737,6 @@ function addProductToCart(productId) {
     }
 
     saveCartState();
-    showNotice(`${product.name} נוסף לעגלה.`, 'success');
 }
 
 /**
@@ -801,10 +760,7 @@ function updateCartItemQuantity(productId, delta) {
         return;
     }
 
-    if (updatedQty > getInventoryStock(productId)) {
-        showNotice('אין מספיק מלאי לכמות זו.', 'error');
-        return;
-    }
+    if (updatedQty > getInventoryStock(productId)) return;
 
     cartItem.quantity = updatedQty;
     saveCartState();
@@ -1022,7 +978,6 @@ const appContext = {
     saveStoredJson,
     saveCartState,
     // UI
-    showNotice,
     updateCartBadge,
     renderFooterFaq,
     // Utilities

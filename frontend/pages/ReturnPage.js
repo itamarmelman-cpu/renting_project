@@ -43,7 +43,6 @@ export class ReturnPage {
         await app.sendLockerServoCommand('open');
         app.state.lockerOpen = true;
         this._finishLockerAction('open');
-        app.showNotice('לוקר ההחזרה נפתח בהצלחה.', 'success');
     }
 
     async completeReturn() {
@@ -51,10 +50,7 @@ export class ReturnPage {
         if (!formData) return;
 
         const file = document.querySelector(this.selectors.fileInput)?.files?.[0];
-        if (!file) {
-            this.app.showNotice('יש להעלות תמונה של הפריטים בתוך הלוקר לפני הנעילה.', 'error');
-            return;
-        }
+        if (!file) return;
 
         const { app } = this;
         this._setLockerBtnsLoading('נועל את הלוקר...');
@@ -75,7 +71,6 @@ export class ReturnPage {
         } catch {}
 
         app.incrementInventoryForReturn(formData.product.id);
-        app.showNotice(`המוצר ${formData.product.name} הוחזר למלאי בהצלחה.`, 'success');
         this._finishLockerAction('close');
     }
 
@@ -296,10 +291,7 @@ export class ReturnPage {
         const firstName = firstNameInput.value.trim();
         const lastName  = lastNameInput.value.trim();
 
-        if (!firstName || !lastName) {
-            app.showNotice('יש להזין שם פרטי ושם משפחה כדי להשלים את תהליך ההחזרה.', 'error');
-            return null;
-        }
+        if (!firstName || !lastName) return null;
 
         return { firstName, lastName, product: app.getProductById(select.value) };
     }
