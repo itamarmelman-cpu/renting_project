@@ -62,22 +62,15 @@ export class InventoryPage {
     saveStockEdit() {
         const { app } = this;
         const stockField = document.querySelector(this.selectors.editStockField);
-        if (!stockField?.dataset.productId) {
-            app.showNotice('שגיאה: מזהה מוצר לא נמצא', 'error');
-            return;
-        }
+        if (!stockField?.dataset.productId) return;
 
         const productId = stockField.dataset.productId;
         const newStock  = parseInt(stockField.value, 10);
 
-        if (isNaN(newStock) || newStock < 0) {
-            app.showNotice('אנא הזן כמות מלאי חוקית', 'error');
-            return;
-        }
+        if (isNaN(newStock) || newStock < 0) return;
 
         app.state.inventory[productId] = newStock;
         app.saveInventoryState();
-        app.showNotice(`המלאי עודכן! ${app.products.find((p) => p.id === productId)?.name || productId} כעת: ${newStock} יחידות.`, 'success');
         this.closeEditModal();
         app.rerender();
     }
@@ -89,20 +82,17 @@ export class InventoryPage {
         const stockField = document.querySelector(this.selectors.addStockField);
         const priceField = document.querySelector(this.selectors.addPriceField);
 
-        if (!nameField || !typeField || !stockField || !priceField) {
-            app.showNotice('שגיאה: שדות הטופס לא נמצאו', 'error');
-            return;
-        }
+        if (!nameField || !typeField || !stockField || !priceField) return;
 
         const name  = nameField.value.trim();
         const type  = typeField.value;
         const stock = parseInt(stockField.value, 10);
         const price = parseFloat(priceField.value);
 
-        if (!name)                     { app.showNotice('אנא הזן שם מוצר', 'error');         return; }
-        if (!type)                     { app.showNotice('אנא בחר סוג מוצר', 'error');         return; }
-        if (isNaN(stock) || stock < 0) { app.showNotice('אנא הזן כמות מלאי חוקית', 'error'); return; }
-        if (isNaN(price) || price < 0) { app.showNotice('אנא הזן מחיר חוקי', 'error');       return; }
+        if (!name)                     return;
+        if (!type)                     return;
+        if (isNaN(stock) || stock < 0) return;
+        if (isNaN(price) || price < 0) return;
 
         const newId = `p${String(app.products.length + 1).padStart(3, '0')}`;
         app.products.push({
@@ -121,7 +111,6 @@ export class InventoryPage {
 
         app.state.inventory[newId] = stock;
         app.saveInventoryState();
-        app.showNotice(`המוצר "${name}" נוסף בהצלחה!`, 'success');
         this.closeAddModal();
         app.rerender();
     }
@@ -129,15 +118,11 @@ export class InventoryPage {
     deleteProduct(productId) {
         const { app } = this;
         const product = app.products.find((p) => p.id === productId);
-        if (!product) {
-            app.showNotice('מוצר לא נמצא', 'error');
-            return;
-        }
+        if (!product) return;
 
         app.products.splice(app.products.indexOf(product), 1);
         delete app.state.inventory[productId];
         app.saveInventoryState();
-        app.showNotice(`המוצר "${product.name}" הוסר מהמלאי`, 'success');
         app.rerender();
     }
 

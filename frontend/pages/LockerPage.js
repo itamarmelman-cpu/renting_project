@@ -32,7 +32,6 @@ export class LockerPage {
         await app.sendLockerServoCommand('open');
         app.state.lockerOpen = true;
         this._finishLockerAction('open');
-        app.showNotice('פקודת פתיחת הלוקר נשלחה.', 'success');
     }
 
     async closeLocker() {
@@ -41,7 +40,6 @@ export class LockerPage {
         await app.sendLockerServoCommand('close');
         app.state.lockerOpen = false;
         this._finishLockerAction('close');
-        app.showNotice('פקודת נעילת הלוקר נשלחה.', 'success');
     }
 
     // ===== Rendering =====
