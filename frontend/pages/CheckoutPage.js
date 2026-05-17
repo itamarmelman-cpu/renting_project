@@ -82,7 +82,6 @@ export class CheckoutPage {
         const { app } = this;
 
         if (app.state.cart.length === 0) {
-            app.showNotice('העגלה שלך ריקה.', 'error');
             return this.goToCart();
         }
 
@@ -90,7 +89,6 @@ export class CheckoutPage {
         for (const cartItem of app.state.cart) {
             const currentStock = Number(inventorySnapshot[cartItem.productId] || 0);
             if (currentStock < cartItem.quantity) {
-                app.showNotice('המלאי השתנה והעגלה לא יכולה להשלים עוד.', 'error');
                 return this.goToCart();
             }
             inventorySnapshot[cartItem.productId] = currentStock - cartItem.quantity;
@@ -130,7 +128,6 @@ export class CheckoutPage {
             }).catch(() => {});
         } catch {}
 
-        app.showNotice(`תשלום ${provider} אושר. הפנייה לשליטה על לוקר.`, 'success');
         return this.goToLocker();
     }
 
@@ -161,7 +158,7 @@ export class CheckoutPage {
         }
 
         return `
-            <h1>תשלום דמה</h1>
+            <h1>תשלום</h1>
 
             <section class="checkout-grid">
                 <form class="card form-card" data-checkout-form>
@@ -259,7 +256,6 @@ export class CheckoutPage {
         const lastName  = form.querySelector(this.selectors.lastNameInput)?.value.trim()  || '';
 
         if (!firstName || !lastName) {
-            this.app.showNotice('שם פרטי ושם משפחה הם שדות חובה.', 'error');
             return null;
         }
 

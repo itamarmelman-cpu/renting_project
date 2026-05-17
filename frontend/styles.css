@@ -642,28 +642,7 @@ button {
     color: var(--color-ink-soft);
 }
 
-/* -----------------------------------------------------------------------------
-   App Notice (Toast)
-   ----------------------------------------------------------------------------- */
-.app-notice {
-    border-radius: var(--radius-lg);
-    padding: 14px 18px;
-    box-shadow: var(--shadow);
-    background: var(--color-surface);
-    border: 2px solid var(--color-border);
-    font-family: var(--font-body);
-    margin-bottom: var(--space-5);
-}
 
-.app-notice[data-tone='success'] {
-    border-color: rgba(167, 218, 220, 0.8);
-    background: rgba(167, 218, 220, 0.2);
-}
-
-.app-notice[data-tone='error'] {
-    border-color: rgba(240, 106, 115, 0.4);
-    background: rgba(240, 106, 115, 0.09);
-}
 
 /* -----------------------------------------------------------------------------
    Page Hero (non-catalog pages)
