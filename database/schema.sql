@@ -1,4 +1,4 @@
--- AguGo Campus Locker — SQLite Schema
+﻿-- AguGo Campus Locker - SQLite Schema
 -- Run: sqlite3 app.db < database/schema.sql
 -- Requires SQLite 3.26+ for FK support via PRAGMA.
 
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS orders (
 -- Line items within an order.
 -- rent_days is 1 for buy-type products (no rental period; price = unit_price × quantity × 1).
 --
--- Overdue detection — never stored, always derived:
+-- Overdue detection - never stored, always derived:
 --   due_at  = datetime(orders.created_at, order_items.rent_days || ' days')
 --   overdue = due_at < datetime('now')  AND no matching row in returns
 --
@@ -72,18 +72,19 @@ CREATE TABLE IF NOT EXISTS order_items (
 
 -- ── returns ───────────────────────────────────────────────────────────────────
 -- One row per return event.
--- No order_id FK — authentication uses first_name + last_name + product
+-- No order_id FK - authentication uses first_name + last_name + product
 -- selection, matching the current ReturnPage flow exactly.
 -- product_name is denormalized so the record is self-contained if the
 -- product is later removed from the catalog.
 
 CREATE TABLE IF NOT EXISTS returns (
-    id           TEXT PRIMARY KEY,
-    first_name   TEXT NOT NULL,
-    last_name    TEXT NOT NULL,
-    product_id   TEXT NOT NULL REFERENCES products(id),
-    product_name TEXT NOT NULL,
-    returned_at  TEXT NOT NULL
+    id           TEXT    PRIMARY KEY,
+    first_name   TEXT    NOT NULL,
+    last_name    TEXT    NOT NULL,
+    product_id   TEXT    NOT NULL REFERENCES products(id),
+    product_name TEXT    NOT NULL,
+    quantity     INTEGER NOT NULL DEFAULT 1,
+    returned_at  TEXT    NOT NULL
 );
 
 -- ── indexes ───────────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-// ── Module-level constants ────────────────────────────────────────────────────
+﻿// ── Module-level constants ────────────────────────────────────────────────────
 
 // Grid order: orders/products on top, order_items/returns on bottom.
 // This keeps vertical arrows in the same column (orders↓order_items, products↓returns)
@@ -54,7 +54,7 @@ ORDER BY total_units DESC`,
     },
     {
         title: 'השכרות באיחור',
-        description: 'פריטים שחלף מועד ההחזרה שלהם — לא כולל מוחזרים',
+        description: 'פריטים שחלף מועד ההחזרה שלהם - לא כולל מוחזרים',
         sql: `SELECT
   p.name          AS product,
   o.customer_name AS customer,
@@ -289,7 +289,7 @@ export class DatabasePage {
 <div class="inventory-dashboard-shell db-page">
 
     <div class="catalog-header-wrapper" style="margin-bottom: 28px;">
-        <h1 style="color: var(--color-header-bg); margin: 0 0 6px;">מסד הנתונים — AguGo</h1>
+        <h1 style="color: var(--color-header-bg); margin: 0 0 6px;">מסד הנתונים - AguGo</h1>
         <p style="color: #5a6a7a; margin: 0; font-size: 0.95rem;">סכמת טבלאות, קשרי מפתחות זרים ושאילתות SQL חיות</p>
     </div>
 

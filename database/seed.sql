@@ -1,4 +1,4 @@
--- AguGo Campus Locker — Seed Data
+﻿-- AguGo Campus Locker - Seed Data
 -- Assumes schema.sql has already been applied to a clean database.
 -- Run: sqlite3 app.db < database/seed.sql
 

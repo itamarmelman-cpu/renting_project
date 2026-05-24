@@ -14,6 +14,7 @@ export class LockerPage {
 
         this._lockerResetTimer = null;
         this._currentStep = app.state.lockerOpen ? 2 : 1;
+        this._phase = 'active'; // 'active' | 'done'
     }
 
     // ===== Navigation Methods =====
@@ -39,12 +40,31 @@ export class LockerPage {
         this._setLockerBtnsLoading('נועל לוקר...');
         await app.sendLockerServoCommand('close');
         app.state.lockerOpen = false;
-        this._finishLockerAction('close');
+        this._phase = 'done';
+        app.rerender();
     }
 
     // ===== Rendering =====
 
     render() {
+        if (this._phase === 'done') return this._renderDoneScreen();
+        return this._renderActiveScreen();
+    }
+
+    _renderDoneScreen() {
+        return `
+            <div class="return-done-container">
+                <div class="return-done-card card">
+                    <div class="return-done-icon">&#10003;</div>
+                    <h2>העסקה הושלמה בהצלחה!</h2>
+                    <p class="return-done-tagline">תודה שבחרת ב-AguGo!</p>
+                    <button class="primary-button" data-route-link="catalog">חזור לקטלוג</button>
+                </div>
+            </div>
+        `;
+    }
+
+    _renderActiveScreen() {
         const { app } = this;
         const isOpen = app.state.lockerOpen;
         this._currentStep = isOpen ? 2 : 1;

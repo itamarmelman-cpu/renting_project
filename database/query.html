@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AguGo — שאילתות SQL</title>
+  <title>AguGo - שאילתות SQL</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
   <style>
@@ -326,7 +326,7 @@
 
 <header>
   <div class="header-title">
-    <h1>AguGo — שאילתות SQL</h1>
+    <h1>AguGo - שאילתות SQL</h1>
     <p>גישה ישירה למסד הנתונים · SELECT בלבד</p>
   </div>
   <div style="display:flex; align-items:center; gap:20px;">
@@ -434,7 +434,7 @@ ORDER BY orders DESC, hour ASC">
     <div class="field-label">שאילתה חופשית</div>
     <textarea id="sql-input" spellcheck="false" placeholder="SELECT * FROM products ..."></textarea>
 
-    <!-- Schema — directly under textarea -->
+    <!-- Schema - directly under textarea -->
     <div class="schema-grid">
       <div class="schema-card">
         <div class="schema-card-header">📦 products</div>
@@ -531,7 +531,7 @@ ORDER BY orders DESC, hour ASC">
       const rows = data.rows || [];
       if (rows.length === 0) {
         resultsMeta.textContent = '0 שורות';
-        resultsArea.innerHTML = '<div class="empty-state">השאילתה הצליחה — אין תוצאות</div>';
+        resultsArea.innerHTML = '<div class="empty-state">השאילתה הצליחה - אין תוצאות</div>';
         return;
       }
 

@@ -1,8 +1,13 @@
-import { CatalogPage } from './CatalogPage.js';
+﻿import { CatalogPage } from './CatalogPage.js';
 
 export class InventoryPage {
     static ROUTE = 'inventory';
     static URL = '#inventory';
+    static FAQ = [
+        { q: 'איך רואים מה במלאי?',        a: 'בכניסת אגודה בוחרים "ניהול מלאי" ומקבלים טבלה מלאה של כל המוצרים, הכמות והסטטוס שלהם.' },
+        { q: 'איך בודקים השכרות פעילות?', a: 'בכניסת אגודה בוחרים "השכרה כרגע" ורואים אילו פריטים מושכרים, לכמה זמן ולכמה ימים נשארו.' },
+        { q: 'איך מעדכנים מלאי?',           a: 'בכניסת אגודה בוחרים "ניהול מלאי" ואז אפשר לערוך מלאי, להוסיף מוצר חדש או להסיר מוצר קיים.' },
+    ];
 
     constructor(app) {
         this.app = app;
@@ -225,6 +230,17 @@ export class InventoryPage {
         const now      = Date.now();
         const msPerDay = 24 * 60 * 60 * 1000;
 
+        // Build a mutable map of unredeemed returns: `${customerName}|${productId}` -> qty
+        const storedReturns = this.app.loadStoredJson('agugo.returns', []);
+        const remainingReturns = {};
+        for (const ret of storedReturns) {
+            const customerName = `${ret.firstName} ${ret.lastName}`;
+            for (const item of (ret.items || [])) {
+                const key = `${customerName}|${item.productId}`;
+                remainingReturns[key] = (remainingReturns[key] || 0) + (item.quantity || 1);
+            }
+        }
+
         const activeRentals = [];
         const dueSoon       = [];
         let soldUnits = 0, salesRevenue = 0, rentedUnits = 0;
@@ -257,20 +273,29 @@ export class InventoryPage {
 
                     if (remainingMs > 0) {
                         const remainingDays = Math.max(1, Math.ceil(remainingMs / msPerDay));
-                        rentedUnits += quantity;
-                        const rental = {
-                            orderId:      order.id,
-                            productId:    item.productId,
-                            productName:  product.name,
-                            quantity,
-                            rentDays,
-                            customerName: order.customerName || 'לא צוין',
-                            startedAt:    order.createdAt || null,
-                            dueAt:        new Date(dueAt).toISOString(),
-                            remainingDays,
-                        };
-                        activeRentals.push(rental);
-                        if (remainingDays <= 1) dueSoon.push(rental);
+
+                        // Subtract any units already returned by this customer
+                        const returnKey   = `${order.customerName || ''}|${item.productId}`;
+                        const toDeduct    = Math.min(remainingReturns[returnKey] || 0, quantity);
+                        remainingReturns[returnKey] = (remainingReturns[returnKey] || 0) - toDeduct;
+                        const activeQty   = quantity - toDeduct;
+
+                        if (activeQty > 0) {
+                            rentedUnits += activeQty;
+                            const rental = {
+                                orderId:      order.id,
+                                productId:    item.productId,
+                                productName:  product.name,
+                                quantity:     activeQty,
+                                rentDays,
+                                customerName: order.customerName || 'לא צוין',
+                                startedAt:    order.createdAt || null,
+                                dueAt:        new Date(dueAt).toISOString(),
+                                remainingDays,
+                            };
+                            activeRentals.push(rental);
+                            if (remainingDays <= 1) dueSoon.push(rental);
+                        }
                     }
                     return;
                 }
@@ -465,8 +490,8 @@ export class InventoryPage {
                         <td>${app.escapeHtml(order.customerName || 'לא צוין')}</td>
                         <td>${app.formatDate(order.createdAt)}</td>
                         <td>${(order.items || []).length} פריטים</td>
-                        <td>${order.total != null ? Number(order.total).toFixed(2) + ' ₪' : '—'}</td>
-                        <td>${app.escapeHtml(order.provider || '—')}</td>
+                        <td>${order.total != null ? Number(order.total).toFixed(2) + ' ₪' : '-'}</td>
+                        <td>${app.escapeHtml(order.provider || '-')}</td>
                     </tr>`).join('')
                 : `<tr><td colspan="6" style="text-align:center;padding:var(--space-5);color:var(--color-ink-muted);">אין הזמנות תואמות את הסינון</td></tr>`;
 
@@ -520,7 +545,7 @@ export class InventoryPage {
             `;
         }
 
-        // ── Summary — full business-insights dashboard ───────────────────────
+        // ── Summary - full business-insights dashboard ───────────────────────
         const {
             activeRentals  = [],
             dueSoon        = [],
@@ -539,7 +564,7 @@ export class InventoryPage {
         const maxHourly  = Math.max(...hourlyCounts, 1);
         const hourBars   = hourlyCounts.map((count, hour) => {
             const h = Math.max(2, Math.round((count / maxHourly) * 110));
-            return `<div class="bar-wrap" title="${String(hour).padStart(2, '0')}:00 — ${count} הזמנות">
+            return `<div class="bar-wrap" title="${String(hour).padStart(2, '0')}:00 - ${count} הזמנות">
                         <div class="bar" style="height:${h}px;"></div>
                         <span class="bar-label">${String(hour).padStart(2, '0')}</span>
                     </div>`;
@@ -571,7 +596,7 @@ export class InventoryPage {
             <div class="inventory-section-header inventory-panel-header">
                 <div>
                     <span class="eyebrow">סטטיסטיקות</span>
-                    <h3>לוח בקרה — תובנות עסקיות</h3>
+                    <h3>לוח בקרה - תובנות עסקיות</h3>
                 </div>
                 <span class="inventory-section-note">${totalOrders} הזמנות בסה"כ</span>
             </div>
@@ -591,35 +616,35 @@ export class InventoryPage {
                 <article class="card inventory-stat-card kpi-3">
                     <span class="inventory-stat-label">יחידות מושכרות כרגע</span>
                     <strong>${rentedUnits}</strong>
-                    <small>סך פריטים שיצאו מהמלאי</small>
+                    <small>סך פריטים להשכרה שיצאו מהמלאי</small>
                 </article>
                 <article class="card inventory-stat-card kpi-4">
-                    <span class="inventory-stat-label">פריטים נמכרו</span>
+                    <span class="inventory-stat-label">פריטים שנמכרו</span>
                     <strong>${soldUnits}</strong>
-                    <small>מוצרי רכישה שנמכרו</small>
+                    <small>סך פריטים לרכישה שיצאו מהמלאי</small>
                 </article>
                 <article class="card inventory-stat-card kpi-5">
                     <span class="inventory-stat-label">סה"כ הכנסות</span>
                     <strong>${totalRevenue.toFixed(0)} ₪</strong>
-                    <small>השכרה + רכישה גם יחד</small>
+                    <small>הכנסות כוללות מהשכרות ורכישות</small>
                 </article>
                 <article class="card inventory-stat-card kpi-6">
                     <span class="inventory-stat-label">ממוצע ימי השכרה</span>
                     <strong>${avgRentDays}</strong>
-                    <small>ממוצע ימים לפריט שהושכר</small>
+                    <small>ממוצע ימים להשכרת כלל הפריטים</small>
                 </article>
             </section>
 
             <!-- ── Charts Row ─────────────────────────────────────────── -->
             <div class="dashboard-charts-grid">
                 <div class="card dashboard-chart-card">
-                    <h4 class="chart-title">שעות שיא — הזמנות לפי שעה ביום</h4>
+                    <h4 class="chart-title">שעות שיא - הזמנות לפי שעה ביום</h4>
                     <div class="bar-chart-wrap dashboard-chart-inner">
                         <div class="bar-chart-bars">${hourBars}</div>
                     </div>
                 </div>
                 <div class="card dashboard-chart-card">
-                    <h4 class="chart-title">מוצרים פופולריים — לפי כמות יחידות שנרשמו</h4>
+                    <h4 class="chart-title">מוצרים פופולריים - לפי כמות יחידות שנרשמו</h4>
                     ${sortedProducts.length
                         ? `<div class="hbar-list">${productHBars}</div>`
                         : `<div class="inventory-empty-state insight-empty">אין נתוני הזמנות עדיין</div>`}

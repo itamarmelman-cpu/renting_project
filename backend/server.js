@@ -16,6 +16,9 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
 
 db.run('PRAGMA foreign_keys = ON');
 
+// Migration: add quantity column to returns for existing databases
+db.run("ALTER TABLE returns ADD COLUMN quantity INTEGER NOT NULL DEFAULT 1", () => {});
+
 function dbRun(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.run(sql, params, function (err) {
@@ -217,34 +220,110 @@ app.patch('/api/orders/:id', async (req, res) => {
 });
 
 // ============ Returns endpoints ============
+
+app.get('/api/active-rentals', async (req, res) => {
+  try {
+    const rows = await dbAll(`
+      SELECT p.id AS productId, p.name AS productName
+      FROM products p
+      WHERE p.type = 'rent'
+        AND (SELECT COALESCE(SUM(oi.quantity), 0) FROM order_items oi WHERE oi.product_id = p.id)
+          > (SELECT COALESCE(SUM(r.quantity),  0) FROM returns r        WHERE r.product_id  = p.id)
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/validate-return', async (req, res) => {
+  try {
+    const { firstName, lastName, items } = req.body;
+    if (!firstName || !lastName || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Invalid request' });
+    }
+
+    const customerName = `${firstName} ${lastName}`;
+    const errors = [];
+    const validItems = [];
+
+    for (const { productId, quantity } of items) {
+      const product = await dbGet(
+        'SELECT * FROM products WHERE id = ? AND type = "rent"',
+        [productId]
+      );
+      if (!product) {
+        errors.push('מוצר לא נמצא או אינו מוצר להשכרה');
+        continue;
+      }
+
+      const rentedRow = await dbGet(
+        `SELECT COALESCE(SUM(oi.quantity), 0) AS total
+         FROM order_items oi
+         JOIN orders o ON o.id = oi.order_id
+         WHERE o.customer_name = ? AND oi.product_id = ?`,
+        [customerName, productId]
+      );
+
+      const returnedRow = await dbGet(
+        `SELECT COALESCE(SUM(quantity), 0) AS total
+         FROM returns
+         WHERE first_name = ? AND last_name = ? AND product_id = ?`,
+        [firstName, lastName, productId]
+      );
+
+      const totalRented   = rentedRow?.total   || 0;
+      const totalReturned = returnedRow?.total  || 0;
+      const available     = totalRented - totalReturned;
+
+      if (available <= 0) {
+        errors.push(`${product.name}: לא נמצאה השכרה פעילה על שמך`);
+      } else if (quantity > available) {
+        errors.push(`${product.name}: ביקשת להחזיר ${quantity} אך יש לך רק ${available} בהשכרה פעילה`);
+      } else {
+        validItems.push({ productId, quantity, productName: product.name });
+      }
+    }
+
+    if (errors.length > 0) {
+      return res.json({ valid: false, errors });
+    }
+    res.json({ valid: true, items: validItems });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/returns', async (req, res) => {
   try {
-    const ret = req.body;
-    if (!ret || !ret.productId) {
+    const { firstName, lastName, items } = req.body;
+    if (!firstName || !lastName || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Invalid return' });
     }
 
-    const returnId = `ret_${Date.now()}`;
     const now = new Date().toISOString();
+    const returnedItems = [];
 
-    await dbRun(
-      `INSERT INTO returns (id, first_name, last_name, product_id, product_name, returned_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        returnId,
-        ret.firstName || '',
-        ret.lastName || '',
-        ret.productId,
-        ret.productName || '',
-        now,
-      ]
-    );
+    for (const { productId, productName, quantity } of items) {
+      const returnId = `ret_${Date.now()}_${productId}`;
+      const qty = quantity || 1;
 
-    const current = await dbGet('SELECT stock FROM products WHERE id = ?', [ret.productId]);
-    const newStock = (current?.stock || 0) + 1;
-    await dbRun('UPDATE products SET stock = ? WHERE id = ?', [newStock, ret.productId]);
+      await dbRun(
+        `INSERT INTO returns (id, first_name, last_name, product_id, product_name, quantity, returned_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [returnId, firstName, lastName, productId, productName || '', qty, now]
+      );
 
-    res.json({ ok: true, returnId });
+      const current = await dbGet('SELECT stock FROM products WHERE id = ?', [productId]);
+      const newStock = (current?.stock || 0) + qty;
+      await dbRun('UPDATE products SET stock = ? WHERE id = ?', [newStock, productId]);
+
+      returnedItems.push({ returnId, productId, quantity: qty });
+    }
+
+    res.json({ ok: true, returns: returnedItems });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -256,7 +335,7 @@ app.get('/api/returns', async (req, res) => {
     const returns = await dbAll(
       `SELECT id, first_name AS firstName, last_name AS lastName,
               product_id AS productId, product_name AS productName,
-              returned_at AS createdAt
+              quantity, returned_at AS createdAt
        FROM returns ORDER BY returned_at DESC`
     );
     res.json(returns);
@@ -289,6 +368,79 @@ app.get('/api/stats', async (req, res) => {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ============ Locker endpoints ============
+
+const ARDUINO_BRIDGE_URL = 'http://localhost:5001';
+
+// resolvers waiting for Arduino hardware confirmation: { open: fn | null, close: fn | null }
+const lockerPending = { open: null, close: null };
+
+// Arduino bridge calls this once it has physically opened / closed
+app.post('/api/locker/callback', (req, res) => {
+  const { status } = req.body; // expected: 'open' or 'closed'
+  if (!status || !['open', 'closed'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status. Expected "open" or "closed"' });
+  }
+  const command = status === 'open' ? 'open' : 'close';
+  if (lockerPending[command]) {
+    lockerPending[command]({ status });
+    lockerPending[command] = null;
+    res.json({ ok: true });
+  } else {
+    res.status(404).json({ error: 'No pending locker request for this status' });
+  }
+});
+
+// Frontend sends 'open' or 'close'; we forward to Arduino bridge then long-poll until callback arrives
+app.post('/api/locker/:command', async (req, res) => {
+  const { command } = req.params;
+  if (!['open', 'close'].includes(command)) {
+    return res.status(400).json({ error: 'Invalid command' });
+  }
+
+  // Forward command to Arduino bridge
+  let bridgeResponse = null;
+  try {
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), 3000);
+    const r = await fetch(`${ARDUINO_BRIDGE_URL}/api/locker/${command}`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ command }),
+      signal:  controller.signal,
+    });
+    clearTimeout(tid);
+    if (r.ok) bridgeResponse = await r.json();
+  } catch {
+    // Bridge not reachable — fall through to mock
+  }
+
+  if (!bridgeResponse) {
+    // Mock mode: no hardware connected, resolve immediately
+    return res.json({ status: command === 'open' ? 'open' : 'closed', mocked: true });
+  }
+
+  // Bridge says locker is already in the desired state — no callback will arrive
+  if (bridgeResponse.alreadyInState) {
+    return res.json({ status: bridgeResponse.status });
+  }
+
+  // Long-poll: hold the request open until ESP32 calls /api/locker/callback (max 30 s)
+  const result = await new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      lockerPending[command] = null;
+      resolve({ status: command === 'open' ? 'open' : 'closed', timedOut: true });
+    }, 30000);
+
+    lockerPending[command] = (data) => {
+      clearTimeout(timer);
+      resolve(data);
+    };
+  });
+
+  res.json(result);
 });
 
 // ============ Query explorer (dev only) ============
