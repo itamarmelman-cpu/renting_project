@@ -1,4 +1,4 @@
-import { CartPage } from './CartPage.js';
+﻿import { CartPage } from './CartPage.js';
 import { LockerPage } from './LockerPage.js';
 
 export class CheckoutPage {
@@ -64,7 +64,7 @@ export class CheckoutPage {
      * Implementation:
      *   1. Validates the customer name form via _collectFormData(); returns null on failure.
      *   2. Guards against an empty cart.
-     *   3. Performs an atomic stock check against an inventory snapshot — aborts
+     *   3. Performs an atomic stock check against an inventory snapshot - aborts
      *      and navigates to Cart if any item's stock is insufficient.
      *   4. Applies the stock deduction to app.state.inventory and persists it.
      *   5. Clears the cart and saves a checkout context object to localStorage

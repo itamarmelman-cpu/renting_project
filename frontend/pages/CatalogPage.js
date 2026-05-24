@@ -1,4 +1,4 @@
-import { CartPage } from './CartPage.js';
+﻿import { CartPage } from './CartPage.js';
 import { ReturnPage } from './ReturnPage.js';
 import { InventoryPage } from './InventoryPage.js';
 
@@ -84,7 +84,7 @@ export class CatalogPage {
      *
      * Implementation: Delegates entirely to app.addProductToCart(), which handles
      * validation, state mutation, persistence, and the success/error notice.
-     * No re-render is required — the catalog view does not change when an item
+     * No re-render is required - the catalog view does not change when an item
      * is added; only the badge (updated automatically inside saveCartState) changes.
      *
      * @param {string} productId - The ID of the product to add.
@@ -92,6 +92,7 @@ export class CatalogPage {
      */
     addToCart(productId) {
         this.app.addProductToCart(productId);
+        this.app.updateCartBadge();
     }
 
     /**
@@ -99,7 +100,7 @@ export class CatalogPage {
      *
      * Implementation: Persists the new preference via app.setRentDaysPreference(),
      * then updates the DOM in-place: toggles the active class on the day buttons
-     * and recalculates the displayed total price — without a full page re-render.
+     * and recalculates the displayed total price - without a full page re-render.
      * The product card is located by its data-product-id attribute.
      *
      * @param {string} productId - The ID of the product whose duration is being set.
@@ -122,7 +123,7 @@ export class CatalogPage {
      * Filters the product list by the given query and re-renders the catalog grid.
      *
      * Implementation: Stores the query on the instance then calls app.rerender(),
-     * which re-invokes render() on this page — the updated searchQuery is picked
+     * which re-invokes render() on this page - the updated searchQuery is picked
      * up automatically by the filter inside render().
      *
      * @param {string} query - The search string to filter products by.

@@ -4,11 +4,14 @@
   "description": "Lightweight API server for AguGo local development",
   "main": "backend/server.js",
   "scripts": {
-    "start": "node backend/server.js"
+    "start": "node backend/server.js",
+    "bridge": "node backend/arduino-bridge.js"
   },
   "dependencies": {
+    "@serialport/parser-readline": "^13.0.0",
     "body-parser": "^1.20.2",
     "express": "^4.18.2",
+    "serialport": "^13.0.0",
     "sqlite3": "^6.0.1"
   }
 }
