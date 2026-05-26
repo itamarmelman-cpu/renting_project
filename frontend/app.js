@@ -40,7 +40,7 @@ const DEFAULT_FAQ = [
 let _isShellMounted = false;
 let _currentRoute = 'catalog';
 let _currentPage = null;
-let _isAdminAuthenticated = false;
+let _isAdminAuthenticated = true;
 
 const selectors = {
     main:      '#main-content',
