@@ -9,7 +9,6 @@ yarn-error.log*
 dist/
 coverage/
 *.log
-app.db
 *.db-journal
 *.sqlite
 *.sqlite3
