@@ -61,5 +61,23 @@
     "product_name": "מילונית עברית-אנגלית",
     "quantity": 1,
     "returned_at": "2026-06-02T16:13:33.178408+00:00"
+  },
+  {
+    "id": "ret_1780417531172_p003",
+    "first_name": "Omer",
+    "last_name": "Doron",
+    "product_id": "p003",
+    "product_name": "מילונית עברית-אנגלית",
+    "quantity": 1,
+    "returned_at": "2026-06-02T16:25:31.172408+00:00"
+  },
+  {
+    "id": "ret_1780417762492_p003",
+    "first_name": "יונתן",
+    "last_name": "יעקובי",
+    "product_id": "p003",
+    "product_name": "מילונית עברית-אנגלית",
+    "quantity": 1,
+    "returned_at": "2026-06-02T16:29:22.492928+00:00"
   }
 ]

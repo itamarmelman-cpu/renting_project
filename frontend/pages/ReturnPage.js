@@ -36,41 +36,48 @@ export class ReturnPage {
 
     _renderFormStep() {
         const { app } = this;
+        const errorsHtml = this._formError
+            ? `<div class="reservation-errors" role="alert">
+                   <p>⚠️ ${app.escapeHtml(this._formError)}</p>
+               </div>`
+            : '';
+
         return `
-            <div style="max-width:480px;margin:0 auto;padding:var(--space-5) var(--space-4)">
-                <form class="card form-card" data-return-search-form>
-                    <h1 style="margin-bottom:var(--space-3)">החזרת ציוד</h1>
-                    <p style="color:var(--color-ink-soft);margin-bottom:var(--space-5)">
-                        הזן את שמך ונאתר את ההשכרות הפעילות שלך.
-                    </p>
-
-                    <label class="field-group">
-                        <span class="field-required">שם פרטי</span>
-                        <input type="text" class="text-input" name="returnFirstName"
-                               autocomplete="given-name" placeholder="לדוגמה: ישראל"
-                               value="${app.escapeHtml(this._savedFirstName)}" />
-                    </label>
-                    <label class="field-group">
-                        <span class="field-required">שם משפחה</span>
-                        <input type="text" class="text-input" name="returnLastName"
-                               autocomplete="family-name" placeholder="לדוגמה: ישראלי"
-                               value="${app.escapeHtml(this._savedLastName)}" />
-                    </label>
-
-                    ${this._formError ? `
-                        <div class="return-error-banner">
-                            <strong>${app.escapeHtml(this._formError)}</strong>
+            <section class="card reservation-page">
+                <div class="reservation-page-header">
+                    <h1 class="reservation-page-title">החזרת ציוד</h1>
+                    <p class="reservation-page-subtitle">הזן את שמך כדי לאתר את ההשכרות הפעילות שלך</p>
+                </div>
+                <form data-return-search-form class="reservation-form" novalidate>
+                    <fieldset class="reservation-fieldset">
+                        <legend class="reservation-legend">פרטי המחזיר</legend>
+                        <div class="reservation-name-row">
+                            <div class="reservation-field-group">
+                                <label class="reservation-field-label field-required" for="return-first-name">שם פרטי</label>
+                                <input type="text" id="return-first-name" class="text-input"
+                                    name="returnFirstName" placeholder="לדוגמה: ישראל"
+                                    required autocomplete="given-name"
+                                    value="${app.escapeHtml(this._savedFirstName)}">
+                            </div>
+                            <div class="reservation-field-group">
+                                <label class="reservation-field-label field-required" for="return-last-name">שם משפחה</label>
+                                <input type="text" id="return-last-name" class="text-input"
+                                    name="returnLastName" placeholder="לדוגמה: ישראלי"
+                                    required autocomplete="family-name"
+                                    value="${app.escapeHtml(this._savedLastName)}">
+                            </div>
                         </div>
-                    ` : ''}
-
-                    <div class="payment-actions" style="margin-top:var(--space-5)">
+                    </fieldset>
+                    ${errorsHtml}
+                    <div class="reservation-actions">
                         <button type="submit" class="primary-button"
                                 ${this._searching ? 'disabled' : ''}>
-                            ${this._searching ? 'מחפש...' : 'חיפוש הזמנות'}
+                            ${this._searching ? 'מחפש...' : 'חפש השכרות'}
                         </button>
+                        <button type="button" class="secondary-button btn-coral" data-route-link="catalog">חזרה לקטלוג</button>
                     </div>
                 </form>
-            </div>
+            </section>
         `;
     }
 
@@ -80,19 +87,22 @@ export class ReturnPage {
         const allSelected = this._rentals.length > 0 &&
             this._rentals.every(r => this._selectedItems[r.productId] !== undefined);
 
+        const errorsHtml = this._lookupError
+            ? `<div class="reservation-errors" role="alert">
+                   <p>⚠️ ${app.escapeHtml(this._lookupError)}</p>
+               </div>`
+            : '';
+
         return `
-            <div style="max-width:560px;margin:0 auto;padding:var(--space-5) var(--space-4)">
-                <div class="card form-card">
-                    <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-2)">
-                        <button type="button" class="return-back-btn" data-action="back-to-form"
-                                title="חזרה">&#8592;</button>
-                        <h2 style="margin:0">השכרות פעילות</h2>
-                    </div>
-                    <p style="color:var(--color-ink-soft);margin-bottom:var(--space-4)">
+            <section class="card reservation-page">
+                <div class="reservation-page-header">
+                    <h1 class="reservation-page-title">השכרות פעילות</h1>
+                    <p class="reservation-page-subtitle">
                         ${app.escapeHtml(this._savedFirstName)} ${app.escapeHtml(this._savedLastName)}
                          — בחר את הפריטים שברצונך להחזיר
                     </p>
-
+                </div>
+                <div class="reservation-form">
                     <label class="return-select-all-label">
                         <input type="checkbox" data-action="select-all"
                                ${allSelected ? 'checked' : ''}>
@@ -103,21 +113,21 @@ export class ReturnPage {
                         ${this._rentals.map(r => this._renderRentalCard(r)).join('')}
                     </div>
 
-                    ${this._lookupError ? `
-                        <div class="return-error-banner" style="margin-top:var(--space-4)">
-                            <strong>${app.escapeHtml(this._lookupError)}</strong>
-                        </div>
-                    ` : ''}
+                    ${errorsHtml}
 
-                    <div class="payment-actions" id="locker-actions" style="margin-top:var(--space-5)">
+                    <div class="reservation-actions" id="locker-actions">
                         <button type="button" class="primary-button"
                                 data-action="validate-and-open"
                                 ${!anySelected ? 'disabled' : ''}>
                             פתיחת לוקר
                         </button>
+                        <button type="button" class="secondary-button btn-coral"
+                                data-action="back-to-form">
+                            חזרה לחיפוש
+                        </button>
                     </div>
                 </div>
-            </div>
+            </section>
         `;
     }
 
