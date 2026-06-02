@@ -458,6 +458,42 @@ class Database:
                     result.append({"productId": pid, "productName": product["name"]})
             return result
 
+    def get_rentals_by_customer(self, first_name: str, last_name: str) -> list:
+        """
+        Returns each product this customer currently has on rental (quantity
+        rented minus quantity already returned > 0), with the earliest expiry
+        date across all their orders for that product.
+        """
+        with self._lock:
+            customer_name = f"{first_name} {last_name}"
+            product_expiries: dict = {}
+
+            for order in self._orders.values():
+                if order["customer_name"] != customer_name:
+                    continue
+                created_dt = datetime.fromisoformat(order["created_at"].replace("Z", "+00:00"))
+                for item in order.get("items", []):
+                    pid = item["product_id"]
+                    rent_days = item.get("rent_days", 1)
+                    expiry_dt = created_dt + timedelta(days=rent_days)
+                    product_expiries.setdefault(pid, []).append(expiry_dt)
+
+            result = []
+            for pid, expiries in product_expiries.items():
+                product = self._products.get(pid, {})
+                if product.get("type") != "rent":
+                    continue
+                available = self._available_for_return(customer_name, pid)
+                if available <= 0:
+                    continue
+                result.append({
+                    "productId":   pid,
+                    "productName": product.get("name", pid),
+                    "quantity":    available,
+                    "expiryDate":  min(expiries).isoformat(),
+                })
+            return result
+
     # ── Reservations ──────────────────────────────────────────────────────────
 
     def create_reservation(self, customer_name: str, items: List[dict]) -> dict:

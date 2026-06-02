@@ -1,5 +1,5 @@
 {
-  "_counter": 24,
+  "_counter": 25,
   "orders": {
     "ord_0001": {
       "id": "ord_0001",
@@ -430,6 +430,23 @@
           "quantity": 1,
           "rent_days": 1,
           "unit_price": 12
+        }
+      ]
+    },
+    "ord_0025": {
+      "id": "ord_0025",
+      "customer_name": "יונתן יעקובי",
+      "payment_provider": "Google Pay",
+      "total": 5.0,
+      "status": "completed",
+      "created_at": "2026-06-02T15:50:43.911342+00:00",
+      "updated_at": "2026-06-02T15:50:43.911342+00:00",
+      "items": [
+        {
+          "product_id": "p003",
+          "quantity": 1,
+          "rent_days": 1,
+          "unit_price": 5
         }
       ]
     }

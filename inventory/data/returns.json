@@ -34,5 +34,32 @@
     "product_name": "מילונית עברית-אנגלית",
     "quantity": 1,
     "returned_at": "2026-06-02T14:09:38.137835+00:00"
+  },
+  {
+    "id": "ret_1780416643938_p003",
+    "first_name": "Omer",
+    "last_name": "Doron",
+    "product_id": "p003",
+    "product_name": "מילונית עברית-אנגלית",
+    "quantity": 1,
+    "returned_at": "2026-06-02T16:10:43.938373+00:00"
+  },
+  {
+    "id": "ret_1780416813178_p001",
+    "first_name": "Omer",
+    "last_name": "Doron",
+    "product_id": "p001",
+    "product_name": "מחשבון מדעי",
+    "quantity": 1,
+    "returned_at": "2026-06-02T16:13:33.178408+00:00"
+  },
+  {
+    "id": "ret_1780416813178_p003",
+    "first_name": "Omer",
+    "last_name": "Doron",
+    "product_id": "p003",
+    "product_name": "מילונית עברית-אנגלית",
+    "quantity": 1,
+    "returned_at": "2026-06-02T16:13:33.178408+00:00"
   }
 ]

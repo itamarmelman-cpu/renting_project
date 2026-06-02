@@ -1,78 +1,179 @@
-﻿import { CatalogPage } from './CatalogPage.js';
-
 export class ReturnPage {
     static ROUTE = 'return';
     static URL   = '#return';
 
     static FAQ = [
-        { q: 'אילו פריטים ניתן להחזיר?',             a: 'ניתן להחזיר רק פריטים שהושכרו על שמך. מלא שם מלא ובחר פריטים, ואנחנו נוודא מול הרשומות.' },
-        { q: 'האם ניתן להחזיר כמה פריטים בבת אחת?', a: 'כן! לחץ "+ הוסף פריט" להוספת שורה. ניתן גם לשנות את הכמות בכל שורה.' },
+        { q: 'אילו פריטים ניתן להחזיר?',             a: 'הזן את שמך ואנחנו נאתר אוטומטית את כל ההשכרות הפעילות שלך.' },
+        { q: 'האם ניתן להחזיר כמה פריטים בבת אחת?', a: 'כן! בחר את כל הפריטים הרצויים לפני פתיחת הלוקר.' },
         { q: 'מה קורה אחרי שנועלים את הלוקר?',      a: 'המערכת מעדכנת את המלאי ומציגה מסך אישור עם תודה על ההחזרה.' },
     ];
 
     constructor(app) {
         this.app = app;
 
-        this._phase          = 'form';  // 'form' | 'done'
-        this._returnRows     = [];      // [{id, productId, quantity}]
-        this._rowCounter     = 0;
-        this._validatedItems = null;    // items confirmed by /api/validate-return
-        this._completedItems = [];      // items after successful return (for done screen)
-        this._lockerOpen     = false;
-        this._currentStep    = 1;
+        this._phase          = 'form';   // 'form' | 'lookup' | 'open' | 'done'
         this._savedFirstName = '';
         this._savedLastName  = '';
-        this._rentProducts   = app.products.filter((p) => p.type === 'rent');
-
-        this._addRowData();             // start with one row
-    }
-
-    // ===== Row state =====
-
-    _addRowData() {
-        this._rowCounter++;
-        this._returnRows.push({ id: this._rowCounter, productId: this._rentProducts[0]?.id || '', quantity: 1 });
-    }
-
-    _removeRowData(rowId) {
-        this._returnRows = this._returnRows.filter((r) => r.id !== rowId);
-    }
-
-    _saveFormState() {
-        const fn = document.querySelector('input[name="returnFirstName"]');
-        const ln = document.querySelector('input[name="returnLastName"]');
-        if (fn) this._savedFirstName = fn.value;
-        if (ln) this._savedLastName  = ln.value;
+        this._rentals        = [];       // [{productId, productName, quantity, expiryDate}]
+        this._selectedItems  = {};       // {productId: quantity}
+        this._validatedItems = null;
+        this._completedItems = [];
+        this._searching      = false;
+        this._formError      = null;
+        this._lookupError    = null;
     }
 
     // ===== Rendering =====
 
     render() {
-        return this._phase === 'done' ? this._renderDoneScreen() : this._renderFormScreen();
+        switch (this._phase) {
+            case 'lookup': return this._renderLookupStep();
+            case 'open':   return this._renderOpenStep();
+            case 'done':   return this._renderDoneScreen();
+            default:       return this._renderFormStep();
+        }
     }
 
-    _renderFormScreen() {
+    _renderFormStep() {
         const { app } = this;
-        const lockerClass = this._lockerOpen ? 'locker-status-open' : 'locker-status-closed';
-        const lockerIcon  = this._lockerOpen ? 'lock-open.png'      : 'locked.png';
-        const lockerLabel = this._lockerOpen ? 'לוקר פתוח'          : 'לוקר נעול';
-        const lockerDesc  = this._lockerOpen
-            ? 'הלוקר פתוח. הנח את הפריטים בתוך הלוקר.'
-            : 'מלא את הפרטים, אמת ופתח את הלוקר.';
+        return `
+            <div style="max-width:480px;margin:0 auto;padding:var(--space-5) var(--space-4)">
+                <form class="card form-card" data-return-search-form>
+                    <h1 style="margin-bottom:var(--space-3)">החזרת ציוד</h1>
+                    <p style="color:var(--color-ink-soft);margin-bottom:var(--space-5)">
+                        הזן את שמך ונאתר את ההשכרות הפעילות שלך.
+                    </p>
 
+                    <label class="field-group">
+                        <span class="field-required">שם פרטי</span>
+                        <input type="text" class="text-input" name="returnFirstName"
+                               autocomplete="given-name" placeholder="לדוגמה: ישראל"
+                               value="${app.escapeHtml(this._savedFirstName)}" />
+                    </label>
+                    <label class="field-group">
+                        <span class="field-required">שם משפחה</span>
+                        <input type="text" class="text-input" name="returnLastName"
+                               autocomplete="family-name" placeholder="לדוגמה: ישראלי"
+                               value="${app.escapeHtml(this._savedLastName)}" />
+                    </label>
+
+                    ${this._formError ? `
+                        <div class="return-error-banner">
+                            <strong>${app.escapeHtml(this._formError)}</strong>
+                        </div>
+                    ` : ''}
+
+                    <div class="payment-actions" style="margin-top:var(--space-5)">
+                        <button type="submit" class="primary-button"
+                                ${this._searching ? 'disabled' : ''}>
+                            ${this._searching ? 'מחפש...' : 'חיפוש הזמנות'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        `;
+    }
+
+    _renderLookupStep() {
+        const { app } = this;
+        const anySelected = Object.keys(this._selectedItems).length > 0;
+        const allSelected = this._rentals.length > 0 &&
+            this._rentals.every(r => this._selectedItems[r.productId] !== undefined);
+
+        return `
+            <div style="max-width:560px;margin:0 auto;padding:var(--space-5) var(--space-4)">
+                <div class="card form-card">
+                    <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-2)">
+                        <button type="button" class="return-back-btn" data-action="back-to-form"
+                                title="חזרה">&#8592;</button>
+                        <h2 style="margin:0">השכרות פעילות</h2>
+                    </div>
+                    <p style="color:var(--color-ink-soft);margin-bottom:var(--space-4)">
+                        ${app.escapeHtml(this._savedFirstName)} ${app.escapeHtml(this._savedLastName)}
+                         — בחר את הפריטים שברצונך להחזיר
+                    </p>
+
+                    <label class="return-select-all-label">
+                        <input type="checkbox" data-action="select-all"
+                               ${allSelected ? 'checked' : ''}>
+                        <span>בחר הכל</span>
+                    </label>
+
+                    <div class="return-rentals-list">
+                        ${this._rentals.map(r => this._renderRentalCard(r)).join('')}
+                    </div>
+
+                    ${this._lookupError ? `
+                        <div class="return-error-banner" style="margin-top:var(--space-4)">
+                            <strong>${app.escapeHtml(this._lookupError)}</strong>
+                        </div>
+                    ` : ''}
+
+                    <div class="payment-actions" id="locker-actions" style="margin-top:var(--space-5)">
+                        <button type="button" class="primary-button"
+                                data-action="validate-and-open"
+                                ${!anySelected ? 'disabled' : ''}>
+                            פתיחת לוקר
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    _renderRentalCard(rental) {
+        const { app } = this;
+        const pid        = rental.productId;
+        const isSelected = this._selectedItems[pid] !== undefined;
+        const qty        = this._selectedItems[pid] ?? 1;
+        const maxQty     = rental.quantity;
+
+        const daysLeft   = (new Date(rental.expiryDate) - new Date()) / 86400000;
+        const chipClass  = daysLeft < 0 ? 'chip-overdue' : daysLeft < 2 ? 'chip-urgent' : 'chip-ok';
+        const expiryText = daysLeft < 0
+            ? `פג תוקף — ${app.formatDate(rental.expiryDate)}`
+            : `עד ${app.formatDate(rental.expiryDate)}`;
+
+        return `
+            <div class="return-rental-card ${isSelected ? 'return-rental-card--selected' : ''}">
+                <label class="return-rental-main">
+                    <input type="checkbox" data-action="toggle-item"
+                           data-product-id="${pid}" ${isSelected ? 'checked' : ''}>
+                    <div class="return-rental-info">
+                        <strong>${app.escapeHtml(rental.productName)}</strong>
+                        <span class="expiry-chip ${chipClass}">${expiryText}</span>
+                        <span class="return-rental-avail">זמין להחזרה: ${maxQty}</span>
+                    </div>
+                </label>
+                ${isSelected ? `
+                    <div class="return-qty-control">
+                        <button type="button" class="return-qty-btn"
+                                data-action="dec-rental-qty" data-product-id="${pid}"
+                                ${qty <= 1 ? 'disabled' : ''}>−</button>
+                        <span class="return-qty-value">${qty}</span>
+                        <button type="button" class="return-qty-btn"
+                                data-action="inc-rental-qty" data-product-id="${pid}"
+                                ${qty >= maxQty ? 'disabled' : ''}>+</button>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    _renderOpenStep() {
         return `
             <div class="locker-hero-grid">
                 <section class="page-hero card">
                     <h1>החזרת ציוד</h1>
                     <ol class="locker-steps" id="locker-steps">
-                        <li class="locker-step step-active" data-step="1">
+                        <li class="locker-step step-done" data-step="1">
                             <span class="step-num">1</span>
                             <div class="step-body">
-                                <strong>מלא פרטים ואמת</strong>
-                                <span>הזן שם, בחר פריטים ולחץ 'פתיחת לוקר'</span>
+                                <strong>בחר פריטים</strong>
+                                <span>הפריטים נבחרו ואומתו</span>
                             </div>
                         </li>
-                        <li class="locker-step step-pending" data-step="2">
+                        <li class="locker-step step-active" data-step="2">
                             <span class="step-num">2</span>
                             <div class="step-body">
                                 <strong>הנח פריטים בלוקר</strong>
@@ -83,60 +184,36 @@ export class ReturnPage {
                             <span class="step-num">3</span>
                             <div class="step-body">
                                 <strong>צלם ונעל לוקר</strong>
-                                <span>העלה תמונה של הפריטים בלוקר ולחץ 'נעל לוקר'</span>
+                                <span>העלה תמונה ולחץ 'נעל לוקר'</span>
                             </div>
                         </li>
                     </ol>
                 </section>
 
-                <section class="locker-status-card ${lockerClass}" id="return-status-card">
+                <section class="locker-status-card locker-status-open" id="return-status-card">
                     <img class="locker-status-image" id="return-status-icon"
-                         src="catalog/logo-pics/${lockerIcon}" alt="">
-                    <h2 class="locker-status-label" id="return-status-label">${lockerLabel}</h2>
-                    <p class="locker-status-desc" id="return-status-desc">${lockerDesc}</p>
+                         src="catalog/logo-pics/lock-open.png" alt="">
+                    <h2 class="locker-status-label">לוקר פתוח</h2>
+                    <p class="locker-status-desc">הלוקר פתוח. הנח את הפריטים בתוך הלוקר.</p>
                 </section>
             </div>
 
-            <div style="margin-bottom: var(--space-5);">
+            <div style="margin-bottom:var(--space-5)">
                 <form class="card form-card" data-return-form>
-                    <h2>פרטי החזרה</h2>
+                    <h2>השלם את ההחזרה</h2>
 
-                    <label class="field-group">
-                        <span class="field-required">שם פרטי</span>
-                        <input type="text" class="text-input" name="returnFirstName"
-                               value="${app.escapeHtml(this._savedFirstName)}" />
-                    </label>
-                    <label class="field-group">
-                        <span class="field-required">שם משפחה</span>
-                        <input type="text" class="text-input" name="returnLastName"
-                               value="${app.escapeHtml(this._savedLastName)}" />
-                    </label>
-
-                    <div class="field-group">
-                        <span class="field-required">פריטים להחזרה</span>
-                        <div id="return-items-container">
-                            ${this._returnRows.map((row) => this._renderItemRow(row)).join('')}
+                    ${this._lookupError ? `
+                        <div class="return-error-banner">
+                            <strong>${this.app.escapeHtml(this._lookupError)}</strong>
                         </div>
-                        <button type="button" class="return-add-row-btn" data-action="add-row">
-                            + הוסף פריט
-                        </button>
-                    </div>
+                    ` : ''}
 
-                    <div class="return-error-banner" id="return-error-banner" hidden>
-                        <strong>פרטי ההחזרה שגויים - אנא ודא שהפרטים ממולאים בהתאם למידע ההזמנה המדויק</strong>
-                        <ul id="return-error-list"></ul>
-                    </div>
-
-                    <div class="return-success-banner" id="return-success-banner" hidden>
-                        <strong>הפרטים אומתו בהצלחה!</strong>
-                        <span>הנח את הפריטים בלוקר ולאחר מכן נעל אותו.</span>
-                    </div>
-
-                    <div class="field-group" id="photo-section" ${this._lockerOpen ? '' : 'hidden'}>
+                    <div class="field-group" id="photo-section">
                         <span class="field-required">תמונת הפריטים בתוך הלוקר</span>
                         <label class="file-upload-btn" for="return-file-input">
                             <img src="catalog/logo-pics/UploadPicIcon.png" alt=""
-                                 class="file-upload-icon" style="width:1.2rem;height:1.2rem;object-fit:contain;">
+                                 class="file-upload-icon"
+                                 style="width:1.2rem;height:1.2rem;object-fit:contain;">
                             <span data-return-file-label>צלם/בחר תמונה של הפריטים בלוקר</span>
                         </label>
                         <input type="file" id="return-file-input" class="file-input-hidden"
@@ -145,46 +222,11 @@ export class ReturnPage {
 
                     <div class="payment-actions" id="locker-actions">
                         <button type="button" class="primary-button"
-                                data-action="validate-and-open"
-                                ${this._lockerOpen ? 'disabled' : ''}>
-                            פתיחת לוקר
-                        </button>
-                        <button type="button" class="secondary-button"
-                                data-action="complete-return"
-                                ${!this._lockerOpen ? 'disabled' : ''}>
+                                data-action="complete-return">
                             נעילת לוקר
                         </button>
                     </div>
                 </form>
-            </div>
-        `;
-    }
-
-    _renderItemRow(row) {
-        const { app } = this;
-        const canRemove = this._returnRows.length > 1;
-        return `
-            <div class="return-item-row" data-row-id="${row.id}">
-                <select class="text-input return-item-select"
-                        data-action="select-product" data-row="${row.id}">
-                    ${this._rentProducts.map((p) => `
-                        <option value="${p.id}" ${p.id === row.productId ? 'selected' : ''}>
-                            ${app.escapeHtml(p.name)}
-                        </option>
-                    `).join('')}
-                </select>
-                <div class="return-qty-control">
-                    <button type="button" class="return-qty-btn"
-                            data-action="dec-qty" data-row="${row.id}">-</button>
-                    <span class="return-qty-value" data-row-qty="${row.id}">${row.quantity}</span>
-                    <button type="button" class="return-qty-btn"
-                            data-action="inc-qty" data-row="${row.id}">+</button>
-                </div>
-                ${canRemove
-                    ? `<button type="button" class="return-remove-row-btn"
-                               data-action="remove-row" data-row="${row.id}">&times;</button>`
-                    : '<div class="return-row-placeholder"></div>'
-                }
             </div>
         `;
     }
@@ -208,20 +250,7 @@ export class ReturnPage {
         `;
     }
 
-    afterRender() {
-        if (this._phase === 'done') return;
-        const activeIds = new Set(this.app.getActiveRentedProductIds());
-        if (activeIds.size === 0) return;
-        this._rentProducts = this.app.products.filter(
-            (p) => p.type === 'rent' && activeIds.has(p.id)
-        );
-        this._returnRows.forEach((row) => {
-            if (!activeIds.has(row.productId)) {
-                row.productId = this._rentProducts[0]?.id || '';
-            }
-        });
-        this._rerenderItemsContainer();
-    }
+    afterRender() {}
 
     // ===== Event handlers =====
 
@@ -230,126 +259,173 @@ export class ReturnPage {
         if (!btn) return;
 
         switch (btn.dataset.action) {
-            case 'add-row':           this._addRow(); break;
-            case 'remove-row':        this._removeRow(Number(btn.dataset.row)); break;
-            case 'inc-qty':           this._changeQty(Number(btn.dataset.row),  1); break;
-            case 'dec-qty':           this._changeQty(Number(btn.dataset.row), -1); break;
+            case 'back-to-form':      this._backToForm(); break;
             case 'validate-and-open': this._validateAndOpen(); break;
             case 'complete-return':   this._completeReturn(); break;
+            case 'dec-rental-qty':    this._changeRentalQty(btn.dataset.productId, -1); break;
+            case 'inc-rental-qty':    this._changeRentalQty(btn.dataset.productId,  1); break;
         }
     }
 
     handleChange(event) {
-        if (event.target.matches('[data-action="select-product"]')) {
-            const rowId = Number(event.target.dataset.row);
-            const row = this._returnRows.find((r) => r.id === rowId);
-            if (row) row.productId = event.target.value;
-            this._resetValidation();
+        if (event.target.matches('[data-action="toggle-item"]')) {
+            this._toggleItem(event.target.dataset.productId, event.target.checked);
         }
-
+        if (event.target.matches('[data-action="select-all"]')) {
+            this._toggleSelectAll(event.target.checked);
+        }
         if (event.target.matches('[data-return-file-input]')) {
             const hasFile   = Boolean(event.target.files?.length);
             const labelSpan = document.querySelector('[data-return-file-label]');
             const labelBtn  = document.querySelector('.file-upload-btn');
-            if (labelSpan) labelSpan.textContent = hasFile ? event.target.files[0].name : 'צלם/בחר תמונה של הפריטים בלוקר';
-            if (labelBtn)  labelBtn.classList.toggle('has-file', hasFile);
-            if (hasFile && this._currentStep === 2) {
-                this._currentStep = 3;
-                this._updateStepsUI();
-            }
+            if (labelSpan) labelSpan.textContent = hasFile
+                ? event.target.files[0].name
+                : 'צלם/בחר תמונה של הפריטים בלוקר';
+            if (labelBtn) labelBtn.classList.toggle('has-file', hasFile);
         }
     }
 
     handleSubmit(event) {
-        if (event.target.closest('[data-return-form]')) event.preventDefault();
+        if (event.target.closest('[data-return-search-form]')) {
+            event.preventDefault();
+            this._handleSearch();
+        }
+        if (event.target.closest('[data-return-form]')) {
+            event.preventDefault();
+        }
     }
 
-    // ===== Row operations =====
+    // ===== Search =====
 
-    _addRow() {
-        this._saveFormState();
-        this._addRowData();
-        this._rerenderItemsContainer();
-        this._resetValidation();
+    async _handleSearch() {
+        const fn = document.querySelector('input[name="returnFirstName"]')?.value.trim() ?? '';
+        const ln = document.querySelector('input[name="returnLastName"]')?.value.trim() ?? '';
+
+        if (!fn || !ln) {
+            this._formError = 'נא למלא שם פרטי ושם משפחה';
+            this.app.rerender();
+            return;
+        }
+
+        this._savedFirstName = fn;
+        this._savedLastName  = ln;
+        this._formError      = null;
+        this._searching      = true;
+        this.app.rerender();
+
+        try {
+            const res  = await fetch(
+                `/api/returns/lookup?firstName=${encodeURIComponent(fn)}&lastName=${encodeURIComponent(ln)}`
+            );
+            const data = await res.json();
+
+            if (!Array.isArray(data) || data.length === 0) {
+                this._formError = 'לא נמצאו השכרות פעילות על שמך';
+                this._searching = false;
+                this.app.rerender();
+                return;
+            }
+
+            this._rentals       = data;
+            this._selectedItems = {};
+            this._lookupError   = null;
+            this._searching     = false;
+            this._phase         = 'lookup';
+            this.app.rerender();
+        } catch {
+            this._formError = 'שגיאה בחיבור לשרת. נסה שוב.';
+            this._searching = false;
+            this.app.rerender();
+        }
     }
 
-    _removeRow(rowId) {
-        this._saveFormState();
-        this._removeRowData(rowId);
-        this._rerenderItemsContainer();
-        this._resetValidation();
+    _backToForm() {
+        this._phase = 'form';
+        this.app.rerender();
     }
 
-    _changeQty(rowId, delta) {
-        const row = this._returnRows.find((r) => r.id === rowId);
-        if (!row) return;
-        const next = row.quantity + delta;
-        if (next < 1) return;
-        row.quantity = next;
-        const qtyEl = document.querySelector(`[data-row-qty="${rowId}"]`);
-        if (qtyEl) qtyEl.textContent = String(row.quantity);
-        this._resetValidation();
+    // ===== Item selection =====
+
+    _toggleItem(productId, checked) {
+        if (checked) {
+            this._selectedItems[productId] = this._selectedItems[productId] ?? 1;
+        } else {
+            delete this._selectedItems[productId];
+        }
+        this.app.rerender();
     }
 
-    _rerenderItemsContainer() {
-        const container = document.getElementById('return-items-container');
-        if (container) container.innerHTML = this._returnRows.map((r) => this._renderItemRow(r)).join('');
+    _toggleSelectAll(checked) {
+        if (checked) {
+            this._rentals.forEach(r => {
+                this._selectedItems[r.productId] = this._selectedItems[r.productId] ?? 1;
+            });
+        } else {
+            this._selectedItems = {};
+        }
+        this.app.rerender();
+    }
+
+    _changeRentalQty(productId, delta) {
+        const rental = this._rentals.find(r => r.productId === productId);
+        if (!rental) return;
+        const current = this._selectedItems[productId] ?? 1;
+        const next    = Math.max(1, Math.min(rental.quantity, current + delta));
+        this._selectedItems[productId] = next;
+        this.app.rerender();
     }
 
     // ===== Validation & locker =====
 
     async _validateAndOpen() {
-        this._saveFormState();
-        const { _savedFirstName: firstName, _savedLastName: lastName } = this;
+        const items = Object.entries(this._selectedItems).map(([productId, quantity]) => ({
+            productId, quantity,
+        }));
+        if (items.length === 0) return;
 
-        if (!firstName || !lastName) {
-            this._showError(['נא למלא שם פרטי ושם משפחה']);
-            return;
-        }
-        if (this._returnRows.length === 0) {
-            this._showError(['נא לבחור לפחות פריט אחד להחזרה']);
-            return;
-        }
+        this._lookupError = null;
 
         const res  = await fetch('/api/validate-return', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({
-                firstName,
-                lastName,
-                items: this._returnRows.map((r) => ({ productId: r.productId, quantity: r.quantity })),
+                firstName: this._savedFirstName,
+                lastName:  this._savedLastName,
+                items,
             }),
         });
         const data = await res.json();
 
         if (!data.valid) {
-            this._showError(data.errors || ['אימות נכשל. נסה שוב.']);
+            this._lookupError = (data.errors || ['אימות נכשל. נסה שוב.']).join(' | ');
+            this.app.rerender();
             return;
         }
 
         this._validatedItems = data.items;
-        this._showSuccess();
+        this._phase = 'open';
+        this.app.rerender();
 
         this._setLockerBtnsLoading('פותח את הלוקר...');
         await this.app.sendLockerServoCommand('open');
-        this._lockerOpen = true;
-        this._finishLockerAction('open');
+        this._finishLockerOpen();
     }
 
     async _completeReturn() {
         const file = document.querySelector('[data-return-file-input]')?.files?.[0];
         if (!file) {
-            this._showError(['נא לצלם תמונה של הפריטים בלוקר לפני הנעילה']);
+            this._lookupError = 'נא לצלם תמונה של הפריטים בלוקר לפני הנעילה';
+            this.app.rerender();
             return;
         }
         if (!this._validatedItems) {
-            this._showError(['שגיאה פנימית - נא להתחיל מחדש']);
+            this._lookupError = 'שגיאה פנימית — נא להתחיל מחדש';
+            this.app.rerender();
             return;
         }
 
         this._setLockerBtnsLoading('נועל את הלוקר...');
         await this.app.sendLockerServoCommand('close');
-        this._lockerOpen = false;
 
         await fetch('/api/returns', {
             method:  'POST',
@@ -361,36 +437,11 @@ export class ReturnPage {
             }),
         });
 
-        // Backend has restored stock — sync local state
         await this.app.refreshFromBackend();
 
         this._completedItems = [...this._validatedItems];
         this._phase = 'done';
         this.app.rerender();
-    }
-
-    // ===== Banner helpers =====
-
-    _showError(errors) {
-        const banner  = document.getElementById('return-error-banner');
-        const list    = document.getElementById('return-error-list');
-        const success = document.getElementById('return-success-banner');
-        if (list)    list.innerHTML = errors.map((e) => `<li>${this.app.escapeHtml(e)}</li>`).join('');
-        if (banner)  banner.removeAttribute('hidden');
-        if (success) success.setAttribute('hidden', '');
-    }
-
-    _showSuccess() {
-        const banner = document.getElementById('return-success-banner');
-        const error  = document.getElementById('return-error-banner');
-        if (banner) banner.removeAttribute('hidden');
-        if (error)  error.setAttribute('hidden', '');
-    }
-
-    _resetValidation() {
-        this._validatedItems = null;
-        document.getElementById('return-error-banner')?.setAttribute('hidden', '');
-        document.getElementById('return-success-banner')?.setAttribute('hidden', '');
     }
 
     // ===== Locker UI =====
@@ -408,55 +459,18 @@ export class ReturnPage {
         }
     }
 
-    _finishLockerAction(command) {
-        const isOpen = command === 'open';
-
+    _finishLockerOpen() {
         document.getElementById('locker-loading-spinner')?.remove();
-
         const actionsEl = document.getElementById('locker-actions');
         if (actionsEl) actionsEl.hidden = false;
 
-        const openBtn  = document.querySelector('[data-action="validate-and-open"]');
-        const closeBtn = document.querySelector('[data-action="complete-return"]');
-        if (openBtn)  openBtn.disabled  = isOpen;
-        if (closeBtn) closeBtn.disabled = !isOpen;
-
         const statusCard = document.getElementById('return-status-card');
         if (statusCard) {
-            statusCard.className = `locker-status-card ${isOpen ? 'locker-status-open' : 'locker-status-closed'}`;
             statusCard.classList.add('locker-state-changed');
             setTimeout(() => statusCard.classList.remove('locker-state-changed'), 700);
         }
 
-        const iconEl  = document.getElementById('return-status-icon');
-        const labelEl = document.getElementById('return-status-label');
-        const descEl  = document.getElementById('return-status-desc');
-        if (iconEl)  iconEl.src          = `catalog/logo-pics/${isOpen ? 'lock-open.png' : 'locked.png'}`;
-        if (labelEl) labelEl.textContent  = isOpen ? 'לוקר פתוח' : 'לוקר נעול';
-        if (descEl)  descEl.textContent   = isOpen
-            ? 'הלוקר פתוח. הנח את הפריטים בתוך הלוקר.'
-            : 'הלוקר ננעל. תהליך ההחזרה הושלם.';
-
-        if (isOpen) {
-            const photoSection = document.getElementById('photo-section');
-            if (photoSection) {
-                photoSection.removeAttribute('hidden');
-                photoSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
-            this._currentStep = 2;
-        } else {
-            this._currentStep = 4;
-        }
-        this._updateStepsUI();
-    }
-
-    _updateStepsUI() {
-        document.getElementById('locker-steps')?.querySelectorAll('.locker-step').forEach((li) => {
-            const s = Number(li.dataset.step);
-            li.className = 'locker-step';
-            if (s === this._currentStep)    li.classList.add('step-active');
-            else if (s < this._currentStep) li.classList.add('step-done');
-            else                            li.classList.add('step-pending');
-        });
+        const photoSection = document.getElementById('photo-section');
+        if (photoSection) photoSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 }

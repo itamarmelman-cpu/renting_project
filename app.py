@@ -337,6 +337,16 @@ def create_return():
     return jsonify(result)
 
 
+@app.get("/api/returns/lookup")
+def get_active_rentals_by_customer():
+    first_name = request.args.get("firstName", "").strip()
+    last_name  = request.args.get("lastName", "").strip()
+    if not first_name or not last_name:
+        return jsonify(error="firstName and lastName are required"), 400
+    rentals = _db.get_rentals_by_customer(first_name, last_name)
+    return jsonify(rentals)
+
+
 # ───────────────────────────────── Locker ────────────────────────────────────
 
 @app.post("/api/locker/callback")
