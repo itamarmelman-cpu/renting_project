@@ -1,10 +1,12 @@
-import { CatalogPage }  from './pages/CatalogPage.js';
-import { CartPage }     from './pages/CartPage.js';
-import { CheckoutPage } from './pages/CheckoutPage.js';
-import { LockerPage }   from './pages/LockerPage.js';
-import { ReturnPage }   from './pages/ReturnPage.js';
-import { InventoryPage } from './pages/InventoryPage.js';
-import { LoginModal }   from './pages/LoginModal.js';
+﻿import { CatalogPage }      from './pages/CatalogPage.js';
+import { CartPage }          from './pages/CartPage.js';
+import { CheckoutPage }      from './pages/CheckoutPage.js';
+import { LockerPage }        from './pages/LockerPage.js';
+import { ReturnPage }        from './pages/ReturnPage.js';
+import { InventoryPage }     from './pages/InventoryPage.js';
+import { ReservationPage }         from './pages/ReservationPage.js';
+import { CollectReservationPage }  from './pages/CollectReservationPage.js';
+import { LoginModal }              from './pages/LoginModal.js';
 
 import {
     STORAGE_KEYS,
@@ -26,7 +28,7 @@ import { loadStoredJson, saveStoredJson, escapeHtml, formatDate } from './utils.
 
 // ===== Constants =====
 
-const ROUTES = new Set(['catalog', 'cart', 'checkout', 'locker', 'return', 'inventory']);
+const ROUTES = new Set(['catalog', 'cart', 'checkout', 'locker', 'return', 'inventory', 'reserve', 'collect']);
 
 /** Fallback FAQ shown on all non-inventory pages. */
 const DEFAULT_FAQ = [
@@ -40,7 +42,7 @@ const DEFAULT_FAQ = [
 let _isShellMounted = false;
 let _currentRoute = 'catalog';
 let _currentPage = null;
-let _isAdminAuthenticated = true;
+let _isAdminAuthenticated = false;
 
 const selectors = {
     main:      '#main-content',
@@ -56,10 +58,34 @@ const selectors = {
  * wires global event listeners, and navigates to the initial route.
  * Must run after the module finishes loading (called at the bottom of this file).
  */
+function _expireReservations() {
+    const now = Date.now();
+    const reservations = loadStoredJson(STORAGE_KEYS.reservations, []);
+    let changed = false;
+
+    const updated = reservations.map((r) => {
+        if (r.status === 'active' && new Date(r.expiresAt).getTime() < now) {
+            for (const item of (r.items || [])) {
+                state.inventory[item.productId] =
+                    (state.inventory[item.productId] || 0) + item.quantity;
+            }
+            changed = true;
+            return { ...r, status: 'expired' };
+        }
+        return r;
+    });
+
+    if (changed) {
+        saveStoredJson(STORAGE_KEYS.reservations, updated);
+        saveInventoryState();
+    }
+}
+
 function init() {
     state.cart = loadCartState();
     state.inventory = loadInventoryState(); // normalizeInventory is called internally
     state.rentDaysByProductId = loadStoredJson(STORAGE_KEYS.rentDays, {});
+    _expireReservations();
 
     renderAppShell();
     attachGlobalEventListeners();
@@ -94,11 +120,16 @@ function renderAppShell() {
     document.body.innerHTML = `
         <div class="app">
             <header class="app-header">
-                <div class="app-logo logo-container logo-link" data-route-link="catalog">
-                    <img src="catalog/logo-pics/AguGoLogo.png" alt="AguGo Logo" class="logo-image-agugo">
-                    <img src="catalog/logo-pics/AgudaLogo.png" alt="Student Union Logo" class="logo-image">
+                <div class="app-logo logo-link" data-route-link="catalog">
+                    <img src="catalog/logo-pics/GrabIt-Logo.png" alt="GrabIt Logo" class="logo-image-grabit">
                 </div>
                 <div class="header-actions">
+                    <button class="reservation-button" type="button" data-route-link="reserve">
+                        הזמנה מוקדמת
+                    </button>
+                    <button class="reservation-button collect-button" type="button" data-route-link="collect">
+                        איסוף הזמנה
+                    </button>
                     <button class="return-button" type="button" data-route-link="return">
                         <span class="btn-icon">↺</span>
                         <span class="btn-text">החזרת מוצר</span>
@@ -110,7 +141,7 @@ function renderAppShell() {
                         <span class="cart-badge" id="cart-badge" style="display: none;">0</span>
                     </button>
                     <button class="association-login-button" type="button" id="assoc-login-btn">
-                        התחברות אגודה
+                        התחברות ארגון
                     </button>
                 </div>
             </header>
@@ -121,23 +152,22 @@ function renderAppShell() {
                 <div class="footer-grid">
                     <div class="footer-brand">
                         <div class="app-logo logo-container logo-link footer-brand-logo" data-route-link="catalog">
-                            <img src="catalog/logo-pics/AguGoLogo.png" alt="AguGo Logo" class="logo-image-agugo">
-                            <img src="catalog/logo-pics/AgudaLogo.png" alt="Student Union Logo" class="logo-image">
+                            <img src="catalog/logo-pics/GrabIt-Logo.png" alt="GrabIt Logo" class="logo-image-grabit">
                         </div>
-                        <p class="brand-description">מערכת חכמה להשכרה ורכישת ציוד אקדמי לסטודנטים. כל מה שצריך, מתי שצריך, במרחק לחיצת כפתור.</p>
                     </div>
                     <div class="footer-links">
                         <h3>ניווט מהיר</h3>
                         <nav class="footer-nav">
                             <a href="#catalog"   data-route-link="catalog">קטלוג הציוד</a>
                             <a href="#cart"      data-route-link="cart">עגלת הקניות שלך</a>
+                            <a href="#reserve"   data-route-link="reserve">הזמנה מוקדמת</a>
                             <a href="#return"    data-route-link="return">החזרת מוצרים</a>
                             <a href="#inventory" data-route-link="inventory">ניהול מלאי</a>
                         </nav>
                     </div>
                     <div class="footer-info">
                         <h3>פרויקט אקדמי תשפ"ו</h3>
-                        <p>מפותח על ידי צוות AguGo:</p>
+                        <p>מפותח על ידי צוות GrabIt:</p>
                         <p class="team-names">איתמר מלמן | יונתן צור | עומר דורון | עמית קליינמן | שירה דניאל</p>
                     </div>
                 </div>
@@ -289,6 +319,8 @@ function _createPageByRoute(route) {
         case 'locker':    return new LockerPage(appContext);
         case 'return':    return new ReturnPage(appContext);
         case 'inventory': return new InventoryPage(appContext);
+        case 'reserve':   return new ReservationPage(appContext);
+        case 'collect':   return new CollectReservationPage(appContext);
         default:          return new CatalogPage(appContext);
     }
 }

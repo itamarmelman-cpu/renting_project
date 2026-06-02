@@ -1,4 +1,4 @@
-import { CatalogPage } from './CatalogPage.js';
+﻿import { CatalogPage } from './CatalogPage.js';
 
 export class LockerPage {
     static ROUTE = 'locker';
@@ -57,7 +57,7 @@ export class LockerPage {
                 <div class="return-done-card card">
                     <div class="return-done-icon">&#10003;</div>
                     <h2>העסקה הושלמה בהצלחה!</h2>
-                    <p class="return-done-tagline">תודה שבחרת ב-AguGo!</p>
+                    <p class="return-done-tagline">תודה שבחרת ב-GrabIt!</p>
                     <button class="primary-button" data-route-link="catalog">חזור לקטלוג</button>
                 </div>
             </div>

@@ -1,4 +1,4 @@
-import { CatalogPage } from './CatalogPage.js';
+﻿import { CatalogPage } from './CatalogPage.js';
 
 export class ReturnPage {
     static ROUTE = 'return';
@@ -196,7 +196,7 @@ export class ReturnPage {
                 <div class="return-done-card card">
                     <div class="return-done-icon">&#10003;</div>
                     <h2>ההחזרה הושלמה בהצלחה!</h2>
-                    <p class="return-done-tagline">תודה שבחרת ב-AguGo!</p>
+                    <p class="return-done-tagline">תודה שבחרת ב-GrabIt!</p>
                     <ul class="return-done-list">
                         ${this._completedItems.map((item) => `
                             <li>${app.escapeHtml(item.productName)} &times; ${item.quantity}</li>

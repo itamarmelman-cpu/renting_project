@@ -4,9 +4,9 @@ export class InventoryPage {
     static ROUTE = 'inventory';
     static URL = '#inventory';
     static FAQ = [
-        { q: 'איך רואים מה במלאי?',        a: 'בכניסת אגודה בוחרים "ניהול מלאי" ומקבלים טבלה מלאה של כל המוצרים, הכמות והסטטוס שלהם.' },
-        { q: 'איך בודקים השכרות פעילות?', a: 'בכניסת אגודה בוחרים "השכרה כרגע" ורואים אילו פריטים מושכרים, לכמה זמן ולכמה ימים נשארו.' },
-        { q: 'איך מעדכנים מלאי?',           a: 'בכניסת אגודה בוחרים "ניהול מלאי" ואז אפשר לערוך מלאי, להוסיף מוצר חדש או להסיר מוצר קיים.' },
+        { q: 'איך רואים מה במלאי?',        a: 'בכניסת ארגון בוחרים "ניהול מלאי" ומקבלים טבלה מלאה של כל המוצרים, הכמות והסטטוס שלהם.' },
+        { q: 'איך בודקים השכרות פעילות?', a: 'בכניסת ארגון בוחרים "השכרה כרגע" ורואים אילו פריטים מושכרים, לכמה זמן ולכמה ימים נשארו.' },
+        { q: 'איך מעדכנים מלאי?',           a: 'בכניסת ארגון בוחרים "ניהול מלאי" ואז אפשר לערוך מלאי, להוסיף מוצר חדש או להסיר מוצר קיים.' },
     ];
 
     constructor(app) {
@@ -15,6 +15,7 @@ export class InventoryPage {
         this.dashboardSummary = null;
         this.currentFetchId   = 0;
         this._allOrders       = [];
+        this._allReservations = [];
 
         this.historyFilters = {
             customerName: '',
@@ -80,7 +81,7 @@ export class InventoryPage {
         app.rerender();
     }
 
-    saveNewProduct() {
+    async saveNewProduct() {
         const { app } = this;
         const nameField  = document.querySelector(this.selectors.addNameField);
         const typeField  = document.querySelector(this.selectors.addTypeField);
@@ -99,31 +100,66 @@ export class InventoryPage {
         if (isNaN(stock) || stock < 0) return;
         if (isNaN(price) || price < 0) return;
 
-        const newId = `p${String(app.products.length + 1).padStart(3, '0')}`;
-        app.products.push({
-            id:            newId,
-            name,
-            description:   `${name} - נוסף ${new Date().toLocaleDateString('he-IL')}`,
-            type:          type === 'rent' ? 'rent' : 'buy',
-            price,
-            stock,
-            visual:        '📦',
-            image:         '',
-            categoryLabel: type === 'rent' ? 'השכרה' : 'רכישה',
-            rentLabel:     type === 'rent' ? 'ליום' : '',
-            searchTerms:   name.toLowerCase(),
-        });
+        // Persist new product to the Python backend
+        try {
+            const res = await fetch('/api/products', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ name, type, stock, price }),
+            });
+            if (res.ok) {
+                const { product } = await res.json();
+                // Add to local product list using the id assigned by the backend
+                app.products.push({
+                    id:            product.id,
+                    name:          product.name,
+                    description:   product.description,
+                    type:          product.type,
+                    price:         product.price,
+                    stock:         product.stock,
+                    visual:        product.visual  || '📦',
+                    image:         product.image   || '',
+                    categoryLabel: product.category_label || (type === 'rent' ? 'השכרה' : 'רכישה'),
+                    rentLabel:     product.rent_label     || (type === 'rent' ? 'ליום'   : ''),
+                    searchTerms:   product.search_terms   || name.toLowerCase(),
+                });
+                app.state.inventory[product.id] = product.stock;
+            }
+        } catch {
+            // Fallback: add locally only (backend offline)
+            const newId = `p${String(app.products.length + 1).padStart(3, '0')}`;
+            app.products.push({
+                id:            newId,
+                name,
+                description:   `${name} - נוסף ${new Date().toLocaleDateString('he-IL')}`,
+                type:          type === 'rent' ? 'rent' : 'buy',
+                price,
+                stock,
+                visual:        '📦',
+                image:         '',
+                categoryLabel: type === 'rent' ? 'השכרה' : 'רכישה',
+                rentLabel:     type === 'rent' ? 'ליום' : '',
+                searchTerms:   name.toLowerCase(),
+            });
+            app.state.inventory[newId] = stock;
+        }
 
-        app.state.inventory[newId] = stock;
         app.saveInventoryState();
         this.closeAddModal();
         app.rerender();
     }
 
-    deleteProduct(productId) {
+    async deleteProduct(productId) {
         const { app } = this;
         const product = app.products.find((p) => p.id === productId);
         if (!product) return;
+
+        // Persist deletion to the Python backend
+        try {
+            await fetch(`/api/products/${productId}`, { method: 'DELETE' });
+        } catch {
+            // Proceed with local removal even if backend is unreachable
+        }
 
         app.products.splice(app.products.indexOf(product), 1);
         delete app.state.inventory[productId];
@@ -138,19 +174,16 @@ export class InventoryPage {
             <section class="card inventory-dashboard-shell">
                 <div class="inventory-section-header">
                     <div style="display:flex; align-items:center; gap:16px;">
-                        <h1>ניהול מלאי אגודה</h1>
-                        <a href="/explorer" target="_blank"
-                           style="display:inline-flex;align-items:center;gap:6px;background:#0d6677;color:#fff;padding:7px 16px;border-radius:8px;font-size:0.85rem;font-weight:600;text-decoration:none;">
-                            🗄 שאילתות SQL
-                        </a>
+                        <h1>ניהול מלאי ארגון</h1>
                     </div>
                     <label class="inventory-section-selector">
                         <span class="inventory-section-note">קטגוריה</span>
                         <select id="inventory-section-select" class="text-input inventory-view-select">
-                            <option value="summary"${this.activeSection === 'summary'   ? ' selected' : ''}>סטטיסטיקות</option>
-                            <option value="rentals"${this.activeSection === 'rentals'   ? ' selected' : ''}>בהשכרה כרגע</option>
-                            <option value="inventory"${this.activeSection === 'inventory' ? ' selected' : ''}>ניהול מלאי</option>
-                            <option value="history"${this.activeSection === 'history'   ? ' selected' : ''}>היסטוריית הזמנות</option>
+                            <option value="summary"${this.activeSection === 'summary'      ? ' selected' : ''}>סטטיסטיקות</option>
+                            <option value="rentals"${this.activeSection === 'rentals'      ? ' selected' : ''}>בהשכרה כרגע</option>
+                            <option value="reservations"${this.activeSection === 'reservations' ? ' selected' : ''}>הזמנות מוקדמות</option>
+                            <option value="inventory"${this.activeSection === 'inventory'  ? ' selected' : ''}>ניהול מלאי</option>
+                            <option value="history"${this.activeSection === 'history'     ? ' selected' : ''}>היסטוריית הזמנות</option>
                         </select>
                     </label>
                 </div>
@@ -176,7 +209,37 @@ export class InventoryPage {
             if (confirm(`להסיר את "${removeBtn.dataset.productName}" מהמלאי?`)) {
                 this.deleteProduct(removeBtn.dataset.productId);
             }
+            return;
         }
+
+        const cancelResBtn = event.target.closest('.cancel-reservation-btn');
+        if (cancelResBtn) {
+            const resId = cancelResBtn.dataset.reservationId;
+            if (confirm('לבטל את ההזמנה המוקדמת? הפריטים יוחזרו למלאי הזמין.')) {
+                void this.cancelReservation(resId);
+            }
+        }
+    }
+
+    async cancelReservation(reservationId) {
+        const { app } = this;
+        const reservation = this._allReservations.find((r) => r.id === reservationId);
+        if (!reservation) return;
+
+        // Restore stock
+        for (const item of (reservation.items || [])) {
+            app.state.inventory[item.productId] =
+                (app.state.inventory[item.productId] || 0) + item.quantity;
+        }
+        app.saveInventoryState();
+
+        // Mark as cancelled in localStorage
+        const updated = this.app.loadStoredJson('grabit.reservations', []).map((r) =>
+            r.id === reservationId ? { ...r, status: 'cancelled' } : r
+        );
+        app.saveStoredJson('grabit.reservations', updated);
+
+        await this.fetchDashboardData();
     }
 
     handleChange(event) {
@@ -219,10 +282,22 @@ export class InventoryPage {
                 throw new Error('API unavailable');
             }
         } catch {
-            orders = this.app.loadStoredJson('agugo.orders', []);
+            orders = this.app.loadStoredJson('grabit.orders', []);
         }
         this._allOrders       = orders;
         this.dashboardSummary = this.buildDashboardSummary(orders);
+
+        // Load reservations from localStorage and auto-expire stale ones
+        const now = Date.now();
+        const allRes = this.app.loadStoredJson('grabit.reservations', []).map((r) => {
+            if (r.status === 'active' && new Date(r.expiresAt).getTime() < now) {
+                return { ...r, status: 'expired' };
+            }
+            return r;
+        });
+        this.app.saveStoredJson('grabit.reservations', allRes);
+        this._allReservations = allRes;
+
         this.renderDashboardPanel();
     }
 
@@ -231,7 +306,7 @@ export class InventoryPage {
         const msPerDay = 24 * 60 * 60 * 1000;
 
         // Build a mutable map of unredeemed returns: `${customerName}|${productId}` -> qty
-        const storedReturns = this.app.loadStoredJson('agugo.returns', []);
+        const storedReturns = this.app.loadStoredJson('grabit.returns', []);
         const remainingReturns = {};
         for (const ret of storedReturns) {
             const customerName = `${ret.firstName} ${ret.lastName}`;
@@ -347,19 +422,108 @@ export class InventoryPage {
                     <span class="inventory-section-note">${isError ? 'שגיאה בטעינת נתונים' : rentals.length ? `נמצאו ${rentals.length} פריטי השכרה פעילים` : 'אין כרגע פריטים מושכרים'}</span>
                 </div>
                 <div class="inventory-rentals-list">
-                    ${rentals.length ? rentals.map((rental) => `
-                        <article class="inventory-rental-row">
-                            <div class="inventory-rental-main">
-                                <strong>${app.escapeHtml(rental.productName)}</strong>
-                                <span>כמות: ${rental.quantity} · לקוח: ${app.escapeHtml(rental.customerName)}</span>
+                    ${rentals.length ? rentals.map((rental) => {
+                        const overdue = rental.remainingDays <= 0;
+                        return `
+                        <article class="rental-card${overdue ? ' rental-card--overdue' : ''}">
+                            <div class="rental-card-header">
+                                <strong class="rental-product-name">${app.escapeHtml(rental.productName)}</strong>
+                                ${overdue
+                                    ? `<span class="rental-badge rental-badge--overdue">באיחור</span>`
+                                    : `<span class="rental-badge rental-badge--active">פעיל</span>`}
                             </div>
-                            <div class="inventory-rental-meta">
-                                <span>תקופה: ${rental.rentDays} ימים</span>
-                                <span>נותרו: ${rental.remainingDays} ימים</span>
-                                <span>מועד סיום: ${app.formatDate(rental.dueAt)}</span>
+                            <div class="rental-card-fields">
+                                <div class="rental-field">
+                                    <span class="rental-field-label">לקוח</span>
+                                    <span class="rental-field-value">${app.escapeHtml(rental.customerName)}</span>
+                                </div>
+                                <div class="rental-field">
+                                    <span class="rental-field-label">כמות</span>
+                                    <span class="rental-field-value">${rental.quantity} יח'</span>
+                                </div>
+                                <div class="rental-field">
+                                    <span class="rental-field-label">תקופת השכרה</span>
+                                    <span class="rental-field-value">${rental.rentDays} ימים</span>
+                                </div>
+                                <div class="rental-field">
+                                    <span class="rental-field-label">נותרו</span>
+                                    <span class="rental-field-value${overdue ? ' rental-field-value--overdue' : ''}">${overdue ? 'באיחור' : `${rental.remainingDays} ימים`}</span>
+                                </div>
+                                <div class="rental-field">
+                                    <span class="rental-field-label">מועד סיום</span>
+                                    <span class="rental-field-value">${app.formatDate(rental.dueAt)}</span>
+                                </div>
                             </div>
                         </article>
-                    `).join('') : `<div class="inventory-empty-state">${isError ? 'לא ניתן לטעון את נתוני ההשכרה כרגע.' : 'אין כרגע פריטים מושכרים.'}</div>`}
+                    `}).join('') : `<div class="inventory-empty-state">${isError ? 'לא ניתן לטעון את נתוני ההשכרה כרגע.' : 'אין כרגע פריטים מושכרים.'}</div>`}
+                </div>
+            `;
+        }
+
+        // ── Reserved Products ─────────────────────────────────────────────────
+        if (section === 'reservations') {
+            const reservations  = this._allReservations || [];
+            const activeCount   = reservations.filter((r) => r.status === 'active').length;
+
+            const statusBadge = (status) => {
+                if (status === 'active')    return `<span class="rental-badge rental-badge--active">פעיל</span>`;
+                if (status === 'expired')   return `<span class="rental-badge rental-badge--overdue">פג תוקף</span>`;
+                if (status === 'cancelled') return `<span class="rental-badge reservation-badge--cancelled">בוטל</span>`;
+                if (status === 'collected') return `<span class="rental-badge rental-badge--returned">נאסף</span>`;
+                return `<span class="rental-badge">${app.escapeHtml(status)}</span>`;
+            };
+
+            const rows = reservations.length
+                ? reservations.map((r) => {
+                    const itemSummary = (r.items || []).map((item) => {
+                        const p = app.getProductById(item.productId);
+                        return `${app.escapeHtml(p ? p.name : item.productId)} (${item.quantity})`;
+                    }).join(' · ');
+
+                    const cancelBtn = r.status === 'active'
+                        ? `<button class="action-button cancel-reservation-btn" data-reservation-id="${app.escapeHtml(r.id)}">ביטול</button>`
+                        : '—';
+
+                    return `
+                        <tr>
+                            <td><span class="order-id-chip">${app.escapeHtml(r.id)}</span></td>
+                            <td>${app.escapeHtml(r.customerName)}</td>
+                            <td class="reservation-items-cell">${itemSummary}</td>
+                            <td>${app.formatDate(r.createdAt)}</td>
+                            <td>${app.formatDate(r.expiresAt)}</td>
+                            <td>${statusBadge(r.status)}</td>
+                            <td>${cancelBtn}</td>
+                        </tr>
+                    `;
+                }).join('')
+                : `<tr><td colspan="7" style="text-align:center;padding:var(--space-5);color:var(--color-ink-muted);">אין הזמנות מוקדמות במערכת</td></tr>`;
+
+            return `
+                <div class="inventory-section-header inventory-panel-header">
+                    <div>
+                        <span class="eyebrow">הזמנות מוקדמות</span>
+                        <h3>פריטים ששוריינו מראש על ידי סטודנטים</h3>
+                    </div>
+                    <span class="inventory-section-note">
+                        ${activeCount} פעילות · ${reservations.length} סה"כ · תוקף מרבי 5 ימים
+                    </span>
+                </div>
+
+                <div class="table-wrap">
+                    <table class="inventory-table">
+                        <thead>
+                            <tr>
+                                <th>מ"ה הזמנה</th>
+                                <th>שם סטודנט</th>
+                                <th>פריטים</th>
+                                <th>תאריך הזמנה</th>
+                                <th>תוקף עד</th>
+                                <th>סטטוס</th>
+                                <th>פעולות</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
                 </div>
             `;
         }
@@ -592,6 +756,16 @@ export class InventoryPage {
         // ── Low stock items ───────────────────────────────────────────────────
         const lowStock = app.products.filter((p) => app.getInventoryStock(p.id) <= 2);
 
+        // ── Active reservations ───────────────────────────────────────────────
+        const now              = Date.now();
+        const activeReservations = (this._allReservations || []).filter((r) => r.status === 'active');
+        const reservedUnits    = activeReservations.reduce(
+            (sum, r) => sum + (r.items || []).reduce((s, i) => s + i.quantity, 0), 0
+        );
+        const expiringToday = activeReservations.filter(
+            (r) => new Date(r.expiresAt).getTime() - now < 24 * 60 * 60 * 1000
+        );
+
         return `
             <div class="inventory-section-header inventory-panel-header">
                 <div>
@@ -628,10 +802,10 @@ export class InventoryPage {
                     <strong>${totalRevenue.toFixed(0)} ₪</strong>
                     <small>הכנסות כוללות מהשכרות ורכישות</small>
                 </article>
-                <article class="card inventory-stat-card kpi-6">
-                    <span class="inventory-stat-label">ממוצע ימי השכרה</span>
-                    <strong>${avgRentDays}</strong>
-                    <small>ממוצע ימים להשכרת כלל הפריטים</small>
+                <article class="card inventory-stat-card kpi-2">
+                    <span class="inventory-stat-label">הזמנות מוקדמות פעילות</span>
+                    <strong>${activeReservations.length}</strong>
+                    <small>הזמנות ששוריינו וטרם נאספו</small>
                 </article>
             </section>
 
@@ -692,6 +866,35 @@ export class InventoryPage {
                             }).join('')}
                         </ul>
                     ` : `<div class="inventory-empty-state insight-empty insight-ok">כל המלאי תקין</div>`}
+                </div>
+
+                <div class="card insight-card">
+                    <h4 class="insight-title">
+                        הזמנות מוקדמות פעילות
+                        ${activeReservations.length ? `<span class="insight-badge insight-badge-warn">${activeReservations.length}</span>` : ''}
+                    </h4>
+                    ${activeReservations.length ? `
+                        <ul class="insight-list">
+                            ${activeReservations.map((r) => {
+                                const msLeft   = new Date(r.expiresAt).getTime() - now;
+                                const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
+                                const badge    = daysLeft <= 1
+                                    ? `<span class="due-badge">היום</span>`
+                                    : `<span class="stock-pill stock-low">${daysLeft} ימים</span>`;
+                                const itemSummary = (r.items || []).map((item) => {
+                                    const p = app.getProductById(item.productId);
+                                    return `${app.escapeHtml(p?.name ?? item.productId)} ×${item.quantity}`;
+                                }).join(', ');
+                                return `<li class="insight-list-item">
+                                    <div class="insight-item-info">
+                                        <strong>${app.escapeHtml(r.customerName)}</strong>
+                                        <span>${itemSummary}</span>
+                                    </div>
+                                    ${badge}
+                                </li>`;
+                            }).join('')}
+                        </ul>
+                    ` : `<div class="inventory-empty-state insight-empty insight-ok">אין הזמנות מוקדמות פעילות</div>`}
                 </div>
 
                 <div class="card insight-card">

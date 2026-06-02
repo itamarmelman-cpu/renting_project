@@ -289,7 +289,7 @@ export class DatabasePage {
 <div class="inventory-dashboard-shell db-page">
 
     <div class="catalog-header-wrapper" style="margin-bottom: 28px;">
-        <h1 style="color: var(--color-header-bg); margin: 0 0 6px;">מסד הנתונים - AguGo</h1>
+        <h1 style="color: var(--color-header-bg); margin: 0 0 6px;">מסד הנתונים - GrabIt</h1>
         <p style="color: #5a6a7a; margin: 0; font-size: 0.95rem;">סכמת טבלאות, קשרי מפתחות זרים ושאילתות SQL חיות</p>
     </div>
 

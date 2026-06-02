@@ -1,0 +1,20 @@
+[
+  {
+    "id": "ret_1747044000000",
+    "first_name": "יוסי",
+    "last_name": "לוי",
+    "product_id": "p009",
+    "product_name": "מטען נייד",
+    "quantity": 1,
+    "returned_at": "2026-05-12T10:00:00.000Z"
+  },
+  {
+    "id": "ret_1747044060000",
+    "first_name": "רונית",
+    "last_name": "כהן",
+    "product_id": "p003",
+    "product_name": "מילונית עברית-אנגלית",
+    "quantity": 1,
+    "returned_at": "2026-05-11T13:00:00.000Z"
+  }
+]

@@ -1,4 +1,4 @@
-// SHA-256 of "aguda" and "Aguda@2026!" — generated offline, never stored in plain text
+﻿// SHA-256 of "aguda" and "Aguda@2026!" — generated offline, never stored in plain text
 const ADMIN_USERNAME_HASH = 'af8564ea1741c50f76e2da72ab3551f977221c805bfbcbc4597d7c4f86f3af3f';
 const ADMIN_PASSWORD_HASH = '44857db783161db1302e7f458eef21e643767f5f4f64d827afb70ae82278b355';
 
@@ -23,8 +23,8 @@ export class LoginModal {
         overlay.innerHTML = `
             <div class="login-modal-card">
                 <button class="login-modal-close" id="login-modal-close" aria-label="סגור">&times;</button>
-                <img src="catalog/logo-pics/AgudaLogo.png" alt="לוגו אגודה" class="login-modal-logo">
-                <h2 class="login-modal-title" id="login-modal-title">כניסת אגודה</h2>
+                <img src="catalog/logo-pics/GrabIt-Logo-Reverse.png" alt="לוגו GrabIt" class="login-modal-logo">
+                <h2 class="login-modal-title" id="login-modal-title">כניסת ארגון</h2>
                 <form id="login-form" class="login-form" novalidate>
                     <div class="login-field">
                         <label for="login-username">שם משתמש</label>
