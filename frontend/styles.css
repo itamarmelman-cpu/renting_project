@@ -1721,10 +1721,11 @@ select.text-input, select.form-input {
     height: 96px;
     border-radius: 50%;
     background: conic-gradient(
-        var(--color-accent)    0deg,
-        var(--palette-mustard) 120deg,
-        var(--palette-teal)    240deg,
-        var(--color-accent)    360deg
+        #FF8C00   0deg,
+        #00C8E6  90deg,
+        #FF1E5A 180deg,
+        #FFD200 270deg,
+        #FF8C00 360deg
     );
     animation: locker-spin 1s linear infinite;
     -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 14px), #000 calc(100% - 13px));

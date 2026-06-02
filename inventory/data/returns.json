@@ -25,5 +25,14 @@
     "product_name": "מחשבון מדעי",
     "quantity": 1,
     "returned_at": "2026-06-02T10:49:23.635817+00:00"
+  },
+  {
+    "id": "ret_1780409378138_p003",
+    "first_name": "Omer",
+    "last_name": "Doron",
+    "product_id": "p003",
+    "product_name": "מילונית עברית-אנגלית",
+    "quantity": 1,
+    "returned_at": "2026-06-02T14:09:38.137835+00:00"
   }
 ]

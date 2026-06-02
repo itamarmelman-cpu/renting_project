@@ -9,11 +9,11 @@ const int MOVE_DELAY        = 5000;
 const int EEPROM_STATE_ADDR = 0;
 
 const int SERVO_STOP        = 90;
-const int SERVO_OPEN_DIR    = 180;  // Continuous rotation - open direction
-const int SERVO_CLOSE_DIR   = 0;    // Continuous rotation - close direction
+const int SERVO_OPEN_DIR    = 180;
+const int SERVO_CLOSE_DIR   = 0;
 
-const int LED_PIN           = 6;    // Data pin for HV-2812-4
-const int LED_COUNT         = 4;    // 4 LEDs on the HV-2812-4
+const int LED_PIN           = 6;
+const int LED_COUNT         = 4;
 
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
@@ -26,31 +26,50 @@ void setLEDs(uint8_t r, uint8_t g, uint8_t b) {
   strip.show();
 }
 
+// Vivid saturated versions of the app palette — pastels become white on LEDs.
+// Amber (mustard), Cyan (teal), Hot-pink (coral/danger), Yellow.
+// Each LED shows a different color; the assignment rotates every 100ms.
+void animateTransition() {
+  const uint8_t colors[4][3] = {
+    {255, 140,   0},  // Amber   (mustard → vivid)
+    {  0, 200, 230},  // Cyan    (teal → vivid)
+    {255,  30,  90},  // Hot-pink (coral/danger → vivid)
+    {255, 210,   0},  // Yellow  (mustard warm accent)
+  };
+
+  unsigned long start = millis();
+  int step = 0;
+
+  while (millis() - start < MOVE_DELAY) {
+    for (int i = 0; i < LED_COUNT; i++) {
+      int ci = (i + step) % 4;
+      strip.setPixelColor(i, strip.Color(colors[ci][0], colors[ci][1], colors[ci][2]));
+    }
+    strip.show();
+    delay(100);
+    step++;
+  }
+}
+
 void setup() {
   Serial.begin(9600);
   lockServo.attach(SERVO_PIN);
-
-  // Stop the servo immediately on boot - do NOT restore position
   lockServo.write(SERVO_STOP);
 
   strip.begin();
-  strip.show(); // All off initially
+  strip.show();
 
-  // Read last known state from EEPROM
   byte savedState = EEPROM.read(EEPROM_STATE_ADDR);
-
-  // If value is invalid (fresh EEPROM = 255), default to locked
   if (savedState != 0 && savedState != 1) {
     savedState = 1;
   }
 
   isLocked = (savedState == 1);
 
-  // Reflect restored state on LEDs immediately
   if (isLocked) {
-    setLEDs(255, 0, 0); // Red = locked
+    setLEDs(255, 0, 0);
   } else {
-    setLEDs(0, 255, 0); // Green = open
+    setLEDs(0, 255, 0);
   }
 
   Serial.println(isLocked ? "STATE:LOCKED" : "STATE:UNLOCKED");
@@ -72,21 +91,21 @@ void loop() {
 }
 
 void openLock() {
-  lockServo.write(SERVO_OPEN_DIR);      // Rotate in open direction
-  delay(MOVE_DELAY);
-  lockServo.write(SERVO_STOP);          // Stop after delay
+  lockServo.write(SERVO_OPEN_DIR);
+  animateTransition();                  // Color chase while servo opens
+  lockServo.write(SERVO_STOP);
   isLocked = false;
-  EEPROM.update(EEPROM_STATE_ADDR, 0);  // Save unlocked state
+  EEPROM.update(EEPROM_STATE_ADDR, 0);
   setLEDs(0, 255, 0);                   // Green = open
   Serial.println("OPENED");
 }
 
 void closeLock() {
-  lockServo.write(SERVO_CLOSE_DIR);     // Rotate in close direction
-  delay(MOVE_DELAY);
-  lockServo.write(SERVO_STOP);          // Stop after delay
+  lockServo.write(SERVO_CLOSE_DIR);
+  animateTransition();                  // Color chase while servo closes
+  lockServo.write(SERVO_STOP);
   isLocked = true;
-  EEPROM.update(EEPROM_STATE_ADDR, 1);  // Save locked state
+  EEPROM.update(EEPROM_STATE_ADDR, 1);
   setLEDs(255, 0, 0);                   // Red = locked
   Serial.println("CLOSED");
 }

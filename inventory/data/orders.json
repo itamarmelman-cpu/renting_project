@@ -1,5 +1,5 @@
 {
-  "_counter": 20,
+  "_counter": 24,
   "orders": {
     "ord_0001": {
       "id": "ord_0001",
@@ -362,6 +362,74 @@
           "quantity": 1,
           "rent_days": 1,
           "unit_price": 22
+        }
+      ]
+    },
+    "ord_0021": {
+      "id": "ord_0021",
+      "customer_name": "Omer Doron",
+      "payment_provider": "Google Pay",
+      "total": 22.0,
+      "status": "completed",
+      "created_at": "2026-06-02T13:58:34.600674+00:00",
+      "updated_at": "2026-06-02T13:58:34.600674+00:00",
+      "items": [
+        {
+          "product_id": "p006",
+          "quantity": 1,
+          "rent_days": 1,
+          "unit_price": 22
+        }
+      ]
+    },
+    "ord_0022": {
+      "id": "ord_0022",
+      "customer_name": "Omer Doron",
+      "payment_provider": "Google Pay",
+      "total": 24.0,
+      "status": "completed",
+      "created_at": "2026-06-02T14:06:04.341821+00:00",
+      "updated_at": "2026-06-02T14:06:04.341821+00:00",
+      "items": [
+        {
+          "product_id": "p005",
+          "quantity": 2,
+          "rent_days": 1,
+          "unit_price": 12
+        }
+      ]
+    },
+    "ord_0023": {
+      "id": "ord_0023",
+      "customer_name": "Omer Doron",
+      "payment_provider": "Google Pay",
+      "total": 15.0,
+      "status": "completed",
+      "created_at": "2026-06-02T14:07:29.182262+00:00",
+      "updated_at": "2026-06-02T14:07:29.182262+00:00",
+      "items": [
+        {
+          "product_id": "p004",
+          "quantity": 1,
+          "rent_days": 1,
+          "unit_price": 15
+        }
+      ]
+    },
+    "ord_0024": {
+      "id": "ord_0024",
+      "customer_name": "Omer Doron",
+      "payment_provider": "Google Pay",
+      "total": 12.0,
+      "status": "completed",
+      "created_at": "2026-06-02T14:08:13.136063+00:00",
+      "updated_at": "2026-06-02T14:08:13.136063+00:00",
+      "items": [
+        {
+          "product_id": "p005",
+          "quantity": 1,
+          "rent_days": 1,
+          "unit_price": 12
         }
       ]
     }
