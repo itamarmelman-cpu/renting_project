@@ -113,7 +113,7 @@ export class CheckoutPage {
             createdAt:    new Date().toISOString(),
         };
         app.saveOrder(order);
-        app.saveStoredJson('agugo.checkoutContext', order);
+        app.saveStoredJson('grabit.checkoutContext', order);
 
         try {
             fetch('/api/orders', {

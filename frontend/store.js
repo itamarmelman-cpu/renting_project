@@ -1,14 +1,15 @@
-import { PRODUCTS } from './data/products.js';
+﻿import { PRODUCTS } from './data/products.js';
 import { loadStoredJson, saveStoredJson } from './utils.js';
 
 // ===== Constants =====
 
 export const STORAGE_KEYS = {
-    cart:      'agugo.cart',
-    inventory: 'agugo.inventory',
-    rentDays:  'agugo.rentDays',
-    orders:    'agugo.orders',
-    returns:   'agugo.returns',
+    cart:         'grabit.cart',
+    inventory:    'grabit.inventory',
+    rentDays:     'grabit.rentDays',
+    orders:       'grabit.orders',
+    returns:      'grabit.returns',
+    reservations: 'grabit.reservations',
 };
 
 // ===== Shared Runtime State =====

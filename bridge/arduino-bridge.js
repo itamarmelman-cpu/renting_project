@@ -6,7 +6,7 @@ const app = express();
 app.use(express.json());
 
 const HTTP_PORT   = 5001;
-const MAIN_SERVER = "http://localhost:3000";
+const MAIN_SERVER = "http://localhost:5000"; // Flask server (was 3000 with Node.js)
 const ARDUINO_COM = "COM3"; // ← replace with your real port
 
 // ── Serial connection ──────────────────────────────────────────────────────────
