@@ -1,6 +1,4 @@
 import { CatalogPage } from './CatalogPage.js';
-import { STORAGE_KEYS } from '../store.js';
-import { loadStoredJson, saveStoredJson } from '../utils.js';
 
 /**
  * ReservationPage
@@ -256,17 +254,16 @@ export class ReservationPage {
     handleSubmit(event) {
         if (event.target.closest(this.selectors.form)) {
             event.preventDefault();
-            this._submitReservation();
+            void this._submitReservation();
         }
     }
 
     // ── Submission ────────────────────────────────────────────────────────────
 
-    _submitReservation() {
+    async _submitReservation() {
         const { app } = this;
         this._errors  = [];
 
-        // Collect name
         const firstName = document.querySelector(this.selectors.firstNameInput)?.value?.trim() ?? '';
         const lastName  = document.querySelector(this.selectors.lastNameInput)?.value?.trim()  ?? '';
 
@@ -276,14 +273,11 @@ export class ReservationPage {
             return;
         }
 
-        // Collect quantities
         const qtyInputs = document.querySelectorAll(this.selectors.qtyInput);
         const items     = [];
         for (const input of qtyInputs) {
             const qty = parseInt(input.value, 10);
-            if (qty > 0) {
-                items.push({ productId: input.dataset.productId, quantity: qty });
-            }
+            if (qty > 0) items.push({ productId: input.dataset.productId, quantity: qty });
         }
 
         if (items.length === 0) {
@@ -292,40 +286,26 @@ export class ReservationPage {
             return;
         }
 
-        // Validate stock locally before committing
-        for (const item of items) {
-            const available = app.getInventoryStock(item.productId);
-            if (item.quantity > available) {
-                const product = app.getProductById(item.productId);
-                this._errors = [`אין מספיק מלאי עבור "${product?.name ?? item.productId}". זמין: ${available}`];
-                app.rerender();
-                return;
-            }
+        const res = await fetch('/api/reservations', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ customerName: `${firstName} ${lastName}`, items }),
+        });
+
+        const body = await res.json();
+
+        if (!res.ok || !body.ok) {
+            this._errors = (body.errors || []).length
+                ? body.errors
+                : ['שגיאה ביצירת ההזמנה. נסה שוב.'];
+            app.rerender();
+            return;
         }
 
-        // Deduct inventory locally and persist
-        for (const item of items) {
-            const current = app.getInventoryStock(item.productId);
-            app.state.inventory[item.productId] = Math.max(0, current - item.quantity);
-        }
-        app.saveInventoryState();
+        // Backend deducted stock — sync local state
+        await app.refreshFromBackend();
 
-        // Build reservation record
-        const expiresAt = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
-        const reservation = {
-            id:           `RES-${Date.now()}`,
-            customerName: `${firstName} ${lastName}`,
-            items,
-            expiresAt,
-            createdAt:    new Date().toISOString(),
-            status:       'active',
-        };
-
-        // Persist to localStorage so InventoryPage can display it
-        const stored = loadStoredJson(STORAGE_KEYS.reservations, []);
-        saveStoredJson(STORAGE_KEYS.reservations, [...stored, reservation]);
-
-        this._confirmation = { reservation };
+        this._confirmation = { reservation: body.reservation };
         this._step         = 'success';
         app.rerender();
     }

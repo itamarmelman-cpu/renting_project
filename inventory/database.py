@@ -556,6 +556,60 @@ class Database:
             r = self._reservations.get(reservation_id)
             return self._reservation_to_api(r) if r else None
 
+    def collect_reservation(self, reservation_id: str, provider: str,
+                            rent_days: Dict[str, int]) -> dict:
+        """
+        Convert an active reservation into a completed order.
+        Stock is NOT deducted again — it was already deducted at reservation creation.
+        rent_days: {productId: days}
+        """
+        with self._lock:
+            self._expire_old_reservations()
+            r = self._reservations.get(reservation_id)
+            if r is None:
+                return {"ok": False, "error": "הזמנה לא נמצאה"}
+            if r["status"] != "active":
+                return {"ok": False, "error": f"לא ניתן לאסוף הזמנה בסטטוס '{r['status']}'"}
+
+            self._counter += 1
+            order_id = f"ord_{str(self._counter).zfill(4)}"
+            now = _now_iso()
+
+            stored_items = []
+            total = 0.0
+            for item in r.get("items", []):
+                pid       = item["product_id"]
+                qty       = item["quantity"]
+                days      = int(rent_days.get(pid, 1))
+                product   = self._products.get(pid)
+                unit_price = float(product["price"]) if product else 0.0
+                total += unit_price * qty * days
+                stored_items.append({
+                    "product_id": pid,
+                    "quantity":   qty,
+                    "rent_days":  days,
+                    "unit_price": unit_price,
+                })
+
+            order = {
+                "id":               order_id,
+                "customer_name":    r["customer_name"],
+                "payment_provider": provider,
+                "total":            total,
+                "status":           "completed",
+                "created_at":       now,
+                "updated_at":       now,
+                "items":            stored_items,
+            }
+            self._orders[order_id] = order
+
+            r["status"] = "collected"
+
+            # Stock is not adjusted — was already deducted at reservation creation
+            self._save_reservations()
+            self._save_orders()
+            return {"ok": True, "order": self._order_to_api(order)}
+
     # ── Stats ─────────────────────────────────────────────────────────────────
 
     def get_stats(self) -> dict:

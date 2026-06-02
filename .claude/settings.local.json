@@ -8,7 +8,8 @@
       "Bash(Format-List FullName)",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(dir \"c:\\\\Users\\\\User\\\\Documents\\\\GitHub\\\\renting_project\" -Recurse -Force)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(netstat -ano)"
     ]
   }
 }

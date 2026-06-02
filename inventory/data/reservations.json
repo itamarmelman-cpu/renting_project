@@ -1,10 +1,10 @@
 {
-  "_counter": 2,
+  "_counter": 7,
   "reservations": {
     "res_0001": {
       "id": "res_0001",
       "customer_name": "ישראל ישראלי",
-      "status": "active",
+      "status": "expired",
       "created_at": "2026-05-27T16:37:50.357233+00:00",
       "expires_at": "2026-06-01T16:37:50.357233+00:00",
       "items": [
@@ -23,6 +23,71 @@
       "items": [
         {
           "product_id": "p001",
+          "quantity": 1
+        }
+      ]
+    },
+    "res_0003": {
+      "id": "res_0003",
+      "customer_name": "Test User",
+      "status": "cancelled",
+      "created_at": "2026-06-02T10:46:44.088695+00:00",
+      "expires_at": "2026-06-07T10:46:44.088695+00:00",
+      "items": [
+        {
+          "product_id": "p004",
+          "quantity": 1
+        }
+      ]
+    },
+    "res_0004": {
+      "id": "res_0004",
+      "customer_name": "Omer Doron",
+      "status": "collected",
+      "created_at": "2026-06-02T10:49:55.844740+00:00",
+      "expires_at": "2026-06-07T10:49:55.844740+00:00",
+      "items": [
+        {
+          "product_id": "p001",
+          "quantity": 1
+        }
+      ]
+    },
+    "res_0005": {
+      "id": "res_0005",
+      "customer_name": "Test User",
+      "status": "collected",
+      "created_at": "2026-06-02T11:20:08.389921+00:00",
+      "expires_at": "2026-06-07T11:20:08.389921+00:00",
+      "items": [
+        {
+          "product_id": "p002",
+          "quantity": 1
+        }
+      ]
+    },
+    "res_0006": {
+      "id": "res_0006",
+      "customer_name": "Omer Doron",
+      "status": "active",
+      "created_at": "2026-06-02T11:21:15.542834+00:00",
+      "expires_at": "2026-06-07T11:21:15.542834+00:00",
+      "items": [
+        {
+          "product_id": "p001",
+          "quantity": 1
+        }
+      ]
+    },
+    "res_0007": {
+      "id": "res_0007",
+      "customer_name": "עמית קליימן",
+      "status": "collected",
+      "created_at": "2026-06-02T11:21:56.816342+00:00",
+      "expires_at": "2026-06-07T11:21:56.816342+00:00",
+      "items": [
+        {
+          "product_id": "p004",
           "quantity": 1
         }
       ]

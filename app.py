@@ -34,7 +34,8 @@ from dashboard.routes import dashboard_bp
 BASE_DIR   = Path(__file__).parent
 STATIC_DIR = BASE_DIR / "frontend"
 
-app = Flask(__name__, static_folder=str(STATIC_DIR), static_url_path="")
+app = Flask(__name__, static_folder=STATIC_DIR, static_url_path="")
+app.secret_key = os.environ.get("SECRET_KEY", "dev-change-me-in-production")
 app.register_blueprint(dashboard_bp)
 
 # Singletons — initialised once at startup
@@ -234,12 +235,38 @@ def create_reservation():
     items         = body.get("items")
 
     if not customer_name or not isinstance(items, list) or not items:
-        return jsonify(error="נדרשים שם לקוח ורשימת פריטים"), 400
+        return jsonify(error="Customer name and item list are required"), 400
 
     result = _db.create_reservation(customer_name, items)
     if not result.get("ok"):
         return jsonify(result), 409
     return jsonify(result), 201
+
+
+@app.post("/api/reservations/<reservation_id>/collect")
+def collect_reservation(reservation_id: str):
+    """Convert an active reservation into a completed order.
+
+    Stock is NOT deducted again — it was already deducted when the reservation
+    was created.
+
+    Request Body (JSON):
+        provider  (str)  — Payment provider label (e.g. "Apple Pay").
+        rentDays  (dict) — Mapping of ``{productId: days}`` for each item.
+
+    Returns:
+        JSON: ``{"ok": true, "order": {...}}`` on success.
+        JSON: ``{"ok": false, "error": "..."}`` with HTTP 409 if the reservation
+              is not active or not found.
+    """
+    body      = request.get_json() or {}
+    provider  = body.get("provider", "Unknown")
+    rent_days = body.get("rentDays", {})
+
+    result = _db.collect_reservation(reservation_id, provider, rent_days)
+    if not result.get("ok"):
+        return jsonify(result), 409
+    return jsonify(result)
 
 
 # ───────────────────────────────── Returns ───────────────────────────────────
@@ -341,28 +368,44 @@ def locker_callback():
     return jsonify(ok=True)
 
 
-@app.post("/api/locker/<command>")
-def locker_command(command: str):
-    """Send an open or close command to the physical locker.
+@app.post("/api/locker/open")
+def locker_open():
+    """Open the physical locker.
 
-    Forwards the command to the Node.js Arduino bridge running on port 5001
-    and long-polls until the bridge sends the confirmation callback, then
-    returns the final hardware result to the caller.
-
-    Args:
-        command: Hardware action — must be ``"open"`` or ``"close"``.
+    Forwards to the Node.js Arduino bridge and long-polls until the hardware
+    callback confirms the locker has opened.
 
     Returns:
         JSON: Result object returned by ``LockerController.request()``.
-
-    Raises:
-        400: If ``command`` is not ``"open"`` or ``"close"``.
     """
-    if command not in ("open", "close"):
-        return jsonify(error="Invalid command"), 400
+    return jsonify(_locker.request("open"))
 
-    result = _locker.request(command)
-    return jsonify(result)
+
+@app.post("/api/locker/close")
+def locker_close():
+    """Close the physical locker.
+
+    Forwards to the Node.js Arduino bridge and long-polls until the hardware
+    callback confirms the locker has closed.
+
+    Returns:
+        JSON: Result object returned by ``LockerController.request()``.
+    """
+    return jsonify(_locker.request("close"))
+
+
+# ───────────────────────────── Error Handlers ────────────────────────────────
+
+@app.errorhandler(404)
+def not_found(_):
+    if request.path.startswith("/api/"):
+        return jsonify(error="Not found"), 404
+    return send_from_directory(str(STATIC_DIR), "index.html")
+
+
+@app.errorhandler(500)
+def server_error(_):
+    return jsonify(error="Internal server error"), 500
 
 
 # ────────────────────────── Static / SPA Fallback ────────────────────────────

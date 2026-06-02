@@ -298,7 +298,7 @@ export class ReturnPage {
 
     // ===== Validation & locker =====
 
-    async _validateAndOpen() { // async kept for sendLockerServoCommand
+    async _validateAndOpen() {
         this._saveFormState();
         const { _savedFirstName: firstName, _savedLastName: lastName } = this;
 
@@ -311,14 +311,19 @@ export class ReturnPage {
             return;
         }
 
-        const data = this.app.validateReturn(
-            firstName,
-            lastName,
-            this._returnRows.map((r) => ({ productId: r.productId, quantity: r.quantity }))
-        );
+        const res  = await fetch('/api/validate-return', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+                firstName,
+                lastName,
+                items: this._returnRows.map((r) => ({ productId: r.productId, quantity: r.quantity })),
+            }),
+        });
+        const data = await res.json();
 
         if (!data.valid) {
-            this._showError(data.errors);
+            this._showError(data.errors || ['אימות נכשל. נסה שוב.']);
             return;
         }
 
@@ -346,9 +351,7 @@ export class ReturnPage {
         await this.app.sendLockerServoCommand('close');
         this._lockerOpen = false;
 
-        this.app.saveReturnToLocal(this._savedFirstName, this._savedLastName, this._validatedItems);
-
-        fetch('/api/returns', {
+        await fetch('/api/returns', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({
@@ -356,11 +359,10 @@ export class ReturnPage {
                 lastName:  this._savedLastName,
                 items:     this._validatedItems,
             }),
-        }).catch(() => {});
+        });
 
-        for (const item of this._validatedItems) {
-            this.app.incrementInventoryForReturn(item.productId, item.quantity);
-        }
+        // Backend has restored stock — sync local state
+        await this.app.refreshFromBackend();
 
         this._completedItems = [...this._validatedItems];
         this._phase = 'done';

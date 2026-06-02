@@ -33,6 +33,7 @@ export class InventoryPage {
             editModal:          '#edit-stock-modal',
             editNameField:      '#edit-product-name',
             editStockField:     '#edit-stock-input',
+            editPriceField:     '#edit-product-price',
             addModal:           '#add-product-modal',
             addForm:            '#add-product-form',
             addNameField:       '#new-product-name',
@@ -65,18 +66,26 @@ export class InventoryPage {
         this.renderDashboardPanel();
     }
 
-    saveStockEdit() {
+    async saveStockEdit() {
         const { app } = this;
         const stockField = document.querySelector(this.selectors.editStockField);
+        const priceField = document.querySelector(this.selectors.editPriceField);
         if (!stockField?.dataset.productId) return;
 
         const productId = stockField.dataset.productId;
         const newStock  = parseInt(stockField.value, 10);
+        const newPrice  = parseFloat(priceField.value);
 
         if (isNaN(newStock) || newStock < 0) return;
+        if (isNaN(newPrice) || newPrice < 0) return;
 
-        app.state.inventory[productId] = newStock;
-        app.saveInventoryState();
+        await fetch(`/api/products/${productId}`, {
+            method:  'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ stock: newStock, price: newPrice }),
+        });
+
+        await app.refreshFromBackend();
         this.closeEditModal();
         app.rerender();
     }
@@ -100,70 +109,23 @@ export class InventoryPage {
         if (isNaN(stock) || stock < 0) return;
         if (isNaN(price) || price < 0) return;
 
-        // Persist new product to the Python backend
-        try {
-            const res = await fetch('/api/products', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ name, type, stock, price }),
-            });
-            if (res.ok) {
-                const { product } = await res.json();
-                // Add to local product list using the id assigned by the backend
-                app.products.push({
-                    id:            product.id,
-                    name:          product.name,
-                    description:   product.description,
-                    type:          product.type,
-                    price:         product.price,
-                    stock:         product.stock,
-                    visual:        product.visual  || '📦',
-                    image:         product.image   || '',
-                    categoryLabel: product.category_label || (type === 'rent' ? 'השכרה' : 'רכישה'),
-                    rentLabel:     product.rent_label     || (type === 'rent' ? 'ליום'   : ''),
-                    searchTerms:   product.search_terms   || name.toLowerCase(),
-                });
-                app.state.inventory[product.id] = product.stock;
-            }
-        } catch {
-            // Fallback: add locally only (backend offline)
-            const newId = `p${String(app.products.length + 1).padStart(3, '0')}`;
-            app.products.push({
-                id:            newId,
-                name,
-                description:   `${name} - נוסף ${new Date().toLocaleDateString('he-IL')}`,
-                type:          type === 'rent' ? 'rent' : 'buy',
-                price,
-                stock,
-                visual:        '📦',
-                image:         '',
-                categoryLabel: type === 'rent' ? 'השכרה' : 'רכישה',
-                rentLabel:     type === 'rent' ? 'ליום' : '',
-                searchTerms:   name.toLowerCase(),
-            });
-            app.state.inventory[newId] = stock;
-        }
+        const res = await fetch('/api/products', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ name, type, stock, price }),
+        });
+        if (!res.ok) return;
 
-        app.saveInventoryState();
+        await app.refreshFromBackend();
         this.closeAddModal();
         app.rerender();
     }
 
     async deleteProduct(productId) {
         const { app } = this;
-        const product = app.products.find((p) => p.id === productId);
-        if (!product) return;
-
-        // Persist deletion to the Python backend
-        try {
-            await fetch(`/api/products/${productId}`, { method: 'DELETE' });
-        } catch {
-            // Proceed with local removal even if backend is unreachable
-        }
-
-        app.products.splice(app.products.indexOf(product), 1);
-        delete app.state.inventory[productId];
-        app.saveInventoryState();
+        const res = await fetch(`/api/products/${productId}`, { method: 'DELETE' });
+        if (!res.ok) return;
+        await app.refreshFromBackend();
         app.rerender();
     }
 
@@ -223,22 +185,9 @@ export class InventoryPage {
 
     async cancelReservation(reservationId) {
         const { app } = this;
-        const reservation = this._allReservations.find((r) => r.id === reservationId);
-        if (!reservation) return;
-
-        // Restore stock
-        for (const item of (reservation.items || [])) {
-            app.state.inventory[item.productId] =
-                (app.state.inventory[item.productId] || 0) + item.quantity;
-        }
-        app.saveInventoryState();
-
-        // Mark as cancelled in localStorage
-        const updated = this.app.loadStoredJson('grabit.reservations', []).map((r) =>
-            r.id === reservationId ? { ...r, status: 'cancelled' } : r
-        );
-        app.saveStoredJson('grabit.reservations', updated);
-
+        const res = await fetch(`/api/reservations/${reservationId}`, { method: 'DELETE' });
+        if (!res.ok) return;
+        await app.refreshFromBackend();
         await this.fetchDashboardData();
     }
 
@@ -261,7 +210,7 @@ export class InventoryPage {
     handleSubmit(event) {
         if (event.target.closest(this.selectors.editStockForm)) {
             event.preventDefault();
-            this.saveStockEdit();
+            void this.saveStockEdit();
             return;
         }
         if (event.target.closest(this.selectors.addForm)) {
@@ -287,16 +236,13 @@ export class InventoryPage {
         this._allOrders       = orders;
         this.dashboardSummary = this.buildDashboardSummary(orders);
 
-        // Load reservations from localStorage and auto-expire stale ones
-        const now = Date.now();
-        const allRes = this.app.loadStoredJson('grabit.reservations', []).map((r) => {
-            if (r.status === 'active' && new Date(r.expiresAt).getTime() < now) {
-                return { ...r, status: 'expired' };
-            }
-            return r;
-        });
-        this.app.saveStoredJson('grabit.reservations', allRes);
-        this._allReservations = allRes;
+        // Load reservations from the backend (server auto-expires stale ones)
+        try {
+            const resRes = await fetch('/api/reservations');
+            this._allReservations = resRes.ok ? await resRes.json() : [];
+        } catch {
+            this._allReservations = [];
+        }
 
         this.renderDashboardPanel();
     }
@@ -539,6 +485,7 @@ export class InventoryPage {
                         <td>${app.escapeHtml(product.name)}</td>
                         <td>${app.escapeHtml(product.categoryLabel)}</td>
                         <td>${stock}</td>
+                        <td>${product.price != null ? Number(product.price).toFixed(2) + ' ₪' : '—'}</td>
                         <td><span class="stock-pill ${statusClass}">${statusText}</span></td>
                         <td>
                             <button class="action-button edit-stock-btn" data-product-id="${product.id}" data-product-name="${app.escapeHtml(product.name)}">✏️ עריכה</button>
@@ -564,6 +511,7 @@ export class InventoryPage {
                                 <th>מוצר</th>
                                 <th>סוג</th>
                                 <th>מלאי</th>
+                                <th>מחיר</th>
                                 <th>סטטוס</th>
                                 <th>פעולות</th>
                             </tr>
@@ -574,17 +522,21 @@ export class InventoryPage {
 
                 <div id="edit-stock-modal" class="modal" style="display:none;">
                     <div class="modal-content">
-                        <h2>עדכון מלאי</h2>
+                        <h2>עריכת מוצר</h2>
                         <form id="edit-stock-form">
-                            <div>
-                                <label>שם המוצר</label>
-                                <input type="text" id="edit-product-name" readonly style="background:#f0f0f0;">
+                            <div class="form-field">
+                                <label for="edit-product-name">שם המוצר</label>
+                                <input type="text" id="edit-product-name" class="text-input" readonly style="background:#f0f0f0;">
                             </div>
-                            <div>
-                                <label class="field-required">כמות במלאי</label>
-                                <input type="number" id="edit-stock-input" min="0" required>
+                            <div class="form-field">
+                                <label for="edit-stock-input" class="field-required">כמות במלאי</label>
+                                <input type="number" id="edit-stock-input" class="text-input" min="0" required>
                             </div>
-                            <div style="display:flex;gap:10px;margin-top:20px;">
+                            <div class="form-field">
+                                <label for="edit-product-price" class="field-required">מחיר (₪)</label>
+                                <input type="number" id="edit-product-price" class="text-input" min="0" step="0.01" required>
+                            </div>
+                            <div class="modal-actions">
                                 <button type="submit" class="primary-button">שמירה</button>
                                 <button type="button" class="secondary-button" onclick="closeEditModal()">ביטול</button>
                             </div>
@@ -596,27 +548,27 @@ export class InventoryPage {
                     <div class="modal-content">
                         <h2>הוספת מוצר חדש</h2>
                         <form id="add-product-form">
-                            <div>
-                                <label class="field-required">שם המוצר</label>
-                                <input type="text" id="new-product-name" required>
+                            <div class="form-field">
+                                <label for="new-product-name" class="field-required">שם המוצר</label>
+                                <input type="text" id="new-product-name" class="text-input" required>
                             </div>
-                            <div>
-                                <label class="field-required">סוג</label>
-                                <select id="new-product-type" required>
+                            <div class="form-field">
+                                <label for="new-product-type" class="field-required">סוג</label>
+                                <select id="new-product-type" class="text-input" required>
                                     <option value="">בחר...</option>
                                     <option value="rent">השכרה</option>
                                     <option value="buy">רכישה</option>
                                 </select>
                             </div>
-                            <div>
-                                <label class="field-required">מלאי התחלתי</label>
-                                <input type="number" id="new-product-stock" min="0" value="0" required>
+                            <div class="form-field">
+                                <label for="new-product-stock" class="field-required">מלאי התחלתי</label>
+                                <input type="number" id="new-product-stock" class="text-input" min="0" value="0" required>
                             </div>
-                            <div>
-                                <label class="field-required">מחיר (₪)</label>
-                                <input type="number" id="new-product-price" min="0" step="0.01" value="0" required>
+                            <div class="form-field">
+                                <label for="new-product-price" class="field-required">מחיר (₪)</label>
+                                <input type="number" id="new-product-price" class="text-input" min="0" step="0.01" value="0" required>
                             </div>
-                            <div style="display:flex;gap:10px;margin-top:20px;">
+                            <div class="modal-actions">
                                 <button type="submit" class="primary-button">הוסף מוצר</button>
                                 <button type="button" class="secondary-button" onclick="closeAddModal()">ביטול</button>
                             </div>
@@ -942,10 +894,13 @@ export class InventoryPage {
         const modal      = document.querySelector(this.selectors.editModal);
         const nameField  = document.querySelector(this.selectors.editNameField);
         const stockField = document.querySelector(this.selectors.editStockField);
-        if (modal && nameField && stockField) {
+        const priceField = document.querySelector(this.selectors.editPriceField);
+        if (modal && nameField && stockField && priceField) {
+            const product                = this.app.getProductById(productId);
             nameField.value              = productName;
             stockField.value             = this.app.getInventoryStock(productId);
             stockField.dataset.productId = productId;
+            priceField.value             = product?.price ?? 0;
             modal.style.display          = 'flex';
         }
     }

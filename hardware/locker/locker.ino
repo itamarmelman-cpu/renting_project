@@ -4,7 +4,7 @@
 Servo lockServo;
 
 const int SERVO_PIN        = 9;
-const int MOVE_DELAY       = 6000;
+const int MOVE_DELAY       = 5000;
 const int EEPROM_STATE_ADDR = 0;
 
 const int SERVO_STOP       = 90;
@@ -23,9 +23,9 @@ void setup() {
   // Read last known state from EEPROM
   byte savedState = EEPROM.read(EEPROM_STATE_ADDR);
 
-  // If value is invalid (fresh EEPROM = 255), default to unlocked
+  // If value is invalid (fresh EEPROM = 255), default to locked
   if (savedState != 0 && savedState != 1) {
-    savedState = 0;
+    savedState = 1;
   }
 
   isLocked = (savedState == 1);

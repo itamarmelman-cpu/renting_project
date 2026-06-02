@@ -1,5 +1,4 @@
-﻿import { PRODUCTS } from './data/products.js';
-import { loadStoredJson, saveStoredJson } from './utils.js';
+﻿import { loadStoredJson, saveStoredJson } from './utils.js';
 
 // ===== Constants =====
 
@@ -21,7 +20,40 @@ export const state = {
     lockerOpen:           false,
 };
 
-export const products = [...PRODUCTS];
+export const products = [];
+
+function _mapBackendProduct(p) {
+    return {
+        id:            p.id,
+        name:          p.name,
+        description:   p.description   || '',
+        type:          p.type,
+        price:         p.price,
+        stock:         p.stock,
+        visual:        p.visual         || '📦',
+        image:         p.image          || '',
+        categoryLabel: p.category_label || (p.type === 'rent' ? 'השכרה' : 'רכישה'),
+        rentLabel:     p.rent_label     || (p.type === 'rent' ? 'ליום' : ''),
+        searchTerms:   p.search_terms   || (p.name || '').toLowerCase(),
+    };
+}
+
+export async function refreshFromBackend() {
+    const [productsRes, inventoryRes] = await Promise.all([
+        fetch('/api/products'),
+        fetch('/api/inventory'),
+    ]);
+    if (productsRes.ok) {
+        const raw = await productsRes.json();
+        products.length = 0;
+        raw.forEach((p) => products.push(_mapBackendProduct(p)));
+    }
+    if (inventoryRes.ok) {
+        const inv = await inventoryRes.json();
+        Object.keys(state.inventory).forEach((k) => delete state.inventory[k]);
+        Object.assign(state.inventory, inv);
+    }
+}
 
 // ===== State Loaders =====
 
@@ -31,11 +63,8 @@ export function loadCartState() {
 }
 
 export function loadInventoryState() {
-    const stored = loadStoredJson(STORAGE_KEYS.inventory, null);
-    if (stored && typeof stored === 'object') return normalizeInventory(stored);
-    const defaults = Object.fromEntries(products.map((p) => [p.id, p.stock]));
-    saveStoredJson(STORAGE_KEYS.inventory, defaults);
-    return defaults;
+    // Kept for compatibility; real inventory is loaded via refreshFromBackend().
+    return {};
 }
 
 export function saveCartState() {
@@ -43,12 +72,9 @@ export function saveCartState() {
 }
 
 export function saveInventoryState() {
-    saveStoredJson(STORAGE_KEYS.inventory, state.inventory);
-    fetch('/api/inventory', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(state.inventory),
-    }).catch(() => {});
+    // No-op: inventory is now managed exclusively by the Python backend.
+    // Each operation (order, return, reservation, product edit) writes to its
+    // own endpoint; callers then refresh state via refreshFromBackend().
 }
 
 export function normalizeInventory(inventory) {

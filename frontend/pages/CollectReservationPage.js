@@ -1,5 +1,4 @@
 import { LockerPage } from './LockerPage.js';
-import { loadStoredJson, saveStoredJson } from '../utils.js';
 
 export class CollectReservationPage {
     static ROUTE = 'collect';
@@ -163,14 +162,14 @@ export class CollectReservationPage {
     handleSubmit(event) {
         if (event.target.closest(this.selectors.searchForm)) {
             event.preventDefault();
-            this._handleSearch();
+            void this._handleSearch();
         }
     }
 
     handleClick(event) {
         const paymentBtn = event.target.closest(this.selectors.paymentBtn);
         if (paymentBtn) {
-            this._submitPayment(paymentBtn.dataset.provider);
+            void this._submitPayment(paymentBtn.dataset.provider);
             return;
         }
         if (event.target.closest(this.selectors.backBtn)) {
@@ -183,7 +182,7 @@ export class CollectReservationPage {
 
     // ── Private ───────────────────────────────────────────────────────────────
 
-    _handleSearch() {
+    async _handleSearch() {
         const firstName = document.querySelector(this.selectors.firstNameInput)?.value?.trim() ?? '';
         const lastName  = document.querySelector(this.selectors.lastNameInput)?.value?.trim()  ?? '';
 
@@ -194,11 +193,23 @@ export class CollectReservationPage {
         }
 
         const fullName = `${firstName} ${lastName}`.toLowerCase();
-        const now      = Date.now();
-        const reservation = loadStoredJson('grabit.reservations', []).find(
+        const now      = new Date().toISOString();
+
+        let reservations;
+        try {
+            const res = await fetch('/api/reservations');
+            if (!res.ok) throw new Error('server error');
+            reservations = await res.json();
+        } catch {
+            this._errors = ['שגיאה בחיפוש ההזמנה. נסה שוב.'];
+            this.app.rerender();
+            return;
+        }
+
+        const reservation = reservations.find(
             (r) => r.status === 'active'
                 && r.customerName.toLowerCase() === fullName
-                && new Date(r.expiresAt).getTime() > now
+                && r.expiresAt > now
         );
 
         if (!reservation) {
@@ -232,40 +243,32 @@ export class CollectReservationPage {
         }, 0).toFixed(0);
     }
 
-    _submitPayment(provider) {
+    async _submitPayment(provider) {
         const { app } = this;
         this._readRentDaysFromDom();
         const r = this._reservation;
 
-        const purchasedItems = (r.items || []).map((item) => ({
-            ...item,
-            rentDays:  this._rentDays[item.productId] || 1,
-            unitPrice: app.getProductById(item.productId)?.price || 0,
-        }));
+        const res = await fetch(`/api/reservations/${encodeURIComponent(r.id)}/collect`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ provider, rentDays: this._rentDays }),
+        });
 
-        const total = purchasedItems.reduce(
-            (sum, item) => sum + item.unitPrice * item.quantity * item.rentDays,
-            0
-        );
+        const body = await res.json();
+        if (!res.ok || !body.ok) {
+            this._errors = [body.error || 'שגיאה באיסוף ההזמנה. נסה שוב.'];
+            this.app.rerender();
+            return;
+        }
 
-        const order = {
-            id:              `order_${Date.now()}`,
-            customerName:    r.customerName,
+        await app.refreshFromBackend();
+
+        // LockerPage reads this to display order details
+        app.saveStoredJson('grabit.checkoutContext', {
+            ...body.order,
             provider,
-            items:           purchasedItems,
-            total,
-            createdAt:       new Date().toISOString(),
             fromReservation: r.id,
-        };
-
-        app.saveOrder(order);
-        app.saveStoredJson('grabit.checkoutContext', order);
-
-        // Mark reservation as collected
-        const allRes = loadStoredJson('grabit.reservations', []).map((res) =>
-            res.id === r.id ? { ...res, status: 'collected' } : res
-        );
-        saveStoredJson('grabit.reservations', allRes);
+        });
 
         app.state.lockerOpen = false;
         app.navigateTo(new LockerPage(app));

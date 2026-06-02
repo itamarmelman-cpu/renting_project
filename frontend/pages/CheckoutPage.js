@@ -74,61 +74,50 @@ export class CheckoutPage {
      * @param {string} provider - The payment provider label (e.g. 'Apple Pay').
      * @returns {LockerPage|null} The LockerPage instance on success, null on validation failure.
      */
-    submitPayment(provider) {
+    async submitPayment(provider) {
         const formData = this._collectFormData();
-        if (!formData) return null;
+        if (!formData) return;
 
         const { firstName, lastName } = formData;
         const { app } = this;
 
-        if (app.state.cart.length === 0) {
-            return this.goToCart();
-        }
+        if (app.state.cart.length === 0) { app.navigateTo(this.goToCart()); return; }
 
-        const inventorySnapshot = { ...app.state.inventory };
+        // Client-side stock guard (UX only — server enforces authoritative stock)
         for (const cartItem of app.state.cart) {
-            const currentStock = Number(inventorySnapshot[cartItem.productId] || 0);
-            if (currentStock < cartItem.quantity) {
-                return this.goToCart();
+            if (app.getInventoryStock(cartItem.productId) < cartItem.quantity) {
+                app.navigateTo(this.goToCart());
+                return;
             }
-            inventorySnapshot[cartItem.productId] = currentStock - cartItem.quantity;
         }
-
-        app.state.inventory = inventorySnapshot;
-        app.saveInventoryState();
 
         const orderTotal     = app.calculateCartTotal();
         const purchasedItems = app.state.cart.map((item) => ({
             ...item,
             unitPrice: app.getProductById(item.productId)?.price || 0,
         }));
+
+        const res = await fetch('/api/orders', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+                customerName: `${firstName} ${lastName}`,
+                provider,
+                total:        orderTotal,
+                items:        purchasedItems,
+            }),
+        });
+        if (!res.ok) return;
+
+        const { order } = await res.json();
+
+        // Backend has deducted stock — sync local state and clear cart
+        await app.refreshFromBackend();
         app.clearCart();
         app.state.lockerOpen = false;
-        const order = {
-            id:           `order_${Date.now()}`,
-            customerName: `${firstName} ${lastName}`,
-            provider,
-            items:        purchasedItems,
-            total:        orderTotal,
-            createdAt:    new Date().toISOString(),
-        };
-        app.saveOrder(order);
-        app.saveStoredJson('grabit.checkoutContext', order);
+        app.saveStoredJson('grabit.checkoutContext', { ...order, provider, items: purchasedItems });
 
-        try {
-            fetch('/api/orders', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({
-                    customerName: order.customerName,
-                    provider:     order.provider,
-                    total:        order.total,
-                    items:        purchasedItems,
-                }),
-            }).catch(() => {});
-        } catch {}
-
-        return this.goToLocker();
+        this.goToLocker();
     }
 
     // ===== Event Handler Methods =====
@@ -218,7 +207,7 @@ export class CheckoutPage {
     handleClick(event) {
         const paymentBtn = event.target.closest(this.selectors.paymentBtn);
         if (paymentBtn) {
-            this.submitPayment(paymentBtn.dataset.provider);
+            void this.submitPayment(paymentBtn.dataset.provider);
         }
     }
 

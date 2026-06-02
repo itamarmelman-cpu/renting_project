@@ -11,8 +11,8 @@ import { LoginModal }              from './pages/LoginModal.js';
 import {
     STORAGE_KEYS,
     state, products,
-    loadCartState, loadInventoryState,
-    saveInventoryState,
+    loadCartState,
+    refreshFromBackend,
     getProductById, getCartItemByProductId, getCartItemCount,
     getInventoryStock, getAvailableStock, getCartQuantity,
     addProductToCart, updateCartItemQuantity, updateCartItemRentDays,
@@ -58,34 +58,13 @@ const selectors = {
  * wires global event listeners, and navigates to the initial route.
  * Must run after the module finishes loading (called at the bottom of this file).
  */
-function _expireReservations() {
-    const now = Date.now();
-    const reservations = loadStoredJson(STORAGE_KEYS.reservations, []);
-    let changed = false;
-
-    const updated = reservations.map((r) => {
-        if (r.status === 'active' && new Date(r.expiresAt).getTime() < now) {
-            for (const item of (r.items || [])) {
-                state.inventory[item.productId] =
-                    (state.inventory[item.productId] || 0) + item.quantity;
-            }
-            changed = true;
-            return { ...r, status: 'expired' };
-        }
-        return r;
-    });
-
-    if (changed) {
-        saveStoredJson(STORAGE_KEYS.reservations, updated);
-        saveInventoryState();
-    }
-}
-
-function init() {
+async function init() {
     state.cart = loadCartState();
-    state.inventory = loadInventoryState(); // normalizeInventory is called internally
     state.rentDaysByProductId = loadStoredJson(STORAGE_KEYS.rentDays, {});
-    _expireReservations();
+
+    // Load products and inventory from the Python backend (authoritative source).
+    // Reservation expiry is also handled server-side.
+    await refreshFromBackend();
 
     renderAppShell();
     attachGlobalEventListeners();
@@ -402,13 +381,13 @@ const appContext = {
     // Rent days
     setRentDaysPreference,
     getRentDaysPreference,
-    // Inventory
+    // Inventory & backend sync
+    refreshFromBackend,
     saveOrder,
     incrementInventoryForReturn,
     validateReturn,
     saveReturnToLocal,
     getActiveRentedProductIds,
-    saveInventoryState,
     // Locker
     sendLockerServoCommand,
     // Persistence
@@ -428,4 +407,4 @@ const loginModal = new LoginModal(() => {
 
 // ===== Entry Point =====
 
-init();
+void init();
