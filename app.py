@@ -1,6 +1,6 @@
 ﻿"""
 ===========================================================================
-app.py  —  GrabIt Renting System
+app.py  -  GrabIt Renting System
 ===========================================================================
 Main Flask application for the GrabIt renting system.
 
@@ -29,7 +29,9 @@ from lock.controller import LockerController
 from dashboard.routes import dashboard_bp
 
 
-# ─────────────────────────────── App Setup ───────────────────────────────────
+# =============================================================================
+# App Setup
+# =============================================================================
 
 BASE_DIR   = Path(__file__).parent
 STATIC_DIR = BASE_DIR / "frontend"
@@ -38,12 +40,14 @@ app = Flask(__name__, static_folder=STATIC_DIR, static_url_path="")
 app.secret_key = os.environ.get("SECRET_KEY", "dev-change-me-in-production")
 app.register_blueprint(dashboard_bp)
 
-# Singletons — initialised once at startup
+# Singletons - initialised once at startup
 _db     = Database.get_instance()
 _locker = LockerController()
 
 
-# ────────────────────────────── Health Check ─────────────────────────────────
+# =============================================================================
+# Health Check
+# =============================================================================
 
 @app.get("/api/ping")
 def ping():
@@ -55,7 +59,9 @@ def ping():
     return jsonify(ok=True)
 
 
-# ──────────────────────────────── Inventory ──────────────────────────────────
+# =============================================================================
+# Inventory
+# =============================================================================
 
 @app.get("/api/inventory")
 def get_inventory():
@@ -71,7 +77,7 @@ def get_inventory():
 def set_inventory():
     """Overwrite stock values for one or more products (admin only).
 
-    Accepts a partial mapping — only the supplied product IDs are updated.
+    Accepts a partial mapping - only the supplied product IDs are updated.
 
     Request Body (JSON):
         ``{productId: stock, ...}``
@@ -89,7 +95,9 @@ def set_inventory():
     return jsonify(ok=True, inventory=_db.get_inventory())
 
 
-# ──────────────────────────── Products — CRUD ────────────────────────────────
+# =============================================================================
+# Products - CRUD
+# =============================================================================
 
 @app.get("/api/products")
 def list_products():
@@ -108,10 +116,10 @@ def add_product():
     """Create a new product and add it to the inventory.
 
     Request Body (JSON):
-        name  (str, required) — Display name of the product.
-        type  (str)           — Product category / type.
-        price (float)         — Rental price per unit per day.
-        stock (int)           — Initial stock quantity.
+        name  (str, required) - Display name of the product.
+        type  (str)           - Product category / type.
+        price (float)         - Rental price per unit per day.
+        stock (int)           - Initial stock quantity.
 
     Returns:
         JSON: ``{"ok": true, "product": {...}}`` with HTTP 201.
@@ -171,21 +179,23 @@ def delete_product(product_id: str):
     return jsonify(ok=True)
 
 
-# ───────────────────────────────── Orders ────────────────────────────────────
+# =============================================================================
+# Orders
+# =============================================================================
 
 @app.post("/api/orders")
 def create_order():
     """Place a new rental order and decrement the corresponding stock levels.
 
     Request Body (JSON):
-        customerName (str)   — Full name of the customer.
-        provider     (str)   — Payment / service provider.
-        total        (float) — Total cost of the entire order.
-        items        (list)  — Line items, each containing:
-            productId  (str)   — Product identifier.
-            quantity   (int)   — Number of units rented.
-            rentDays   (int)   — Duration of the rental in days.
-            unitPrice  (float) — Price per unit per day.
+        customerName (str)   - Full name of the customer.
+        provider     (str)   - Payment / service provider.
+        total        (float) - Total cost of the entire order.
+        items        (list)  - Line items, each containing:
+            productId  (str)   - Product identifier.
+            quantity   (int)   - Number of units rented.
+            rentDays   (int)   - Duration of the rental in days.
+            unitPrice  (float) - Price per unit per day.
 
     Returns:
         JSON: ``{"ok": true, "order": {...}}`` with the persisted order.
@@ -206,7 +216,9 @@ def create_order():
     return jsonify(ok=True, order=order)
 
 
-# ─────────────────────────────── Reservations ────────────────────────────────
+# =============================================================================
+# Reservations
+# =============================================================================
 
 @app.post("/api/reservations")
 def create_reservation():
@@ -217,10 +229,10 @@ def create_reservation():
     and the stock is restored.
 
     Request Body (JSON):
-        customerName (str)  — Full name of the student making the reservation.
-        items        (list) — Items to reserve, each containing:
-            productId (str) — Product identifier.
-            quantity  (int) — Number of units to reserve.
+        customerName (str)  - Full name of the student making the reservation.
+        items        (list) - Items to reserve, each containing:
+            productId (str) - Product identifier.
+            quantity  (int) - Number of units to reserve.
 
     Returns:
         JSON: ``{"ok": true, "reservation": {...}}`` with HTTP 201 on success.
@@ -247,12 +259,12 @@ def create_reservation():
 def collect_reservation(reservation_id: str):
     """Convert an active reservation into a completed order.
 
-    Stock is NOT deducted again — it was already deducted when the reservation
+    Stock is NOT deducted again - it was already deducted when the reservation
     was created.
 
     Request Body (JSON):
-        provider  (str)  — Payment provider label (e.g. "Apple Pay").
-        rentDays  (dict) — Mapping of ``{productId: days}`` for each item.
+        provider  (str)  - Payment provider label (e.g. "Apple Pay").
+        rentDays  (dict) - Mapping of ``{productId: days}`` for each item.
 
     Returns:
         JSON: ``{"ok": true, "order": {...}}`` on success.
@@ -269,7 +281,9 @@ def collect_reservation(reservation_id: str):
     return jsonify(result)
 
 
-# ───────────────────────────────── Returns ───────────────────────────────────
+# =============================================================================
+# Returns
+# =============================================================================
 
 @app.post("/api/validate-return")
 def validate_return():
@@ -280,11 +294,11 @@ def validate_return():
     first; only open the locker after receiving a successful response.
 
     Request Body (JSON):
-        firstName (str)  — Customer's first name.
-        lastName  (str)  — Customer's last name.
-        items     (list) — Items to return, each containing:
-            productId (str) — Product identifier.
-            quantity  (int) — Number of units being returned.
+        firstName (str)  - Customer's first name.
+        lastName  (str)  - Customer's last name.
+        items     (list) - Items to return, each containing:
+            productId (str) - Product identifier.
+            quantity  (int) - Number of units being returned.
 
     Returns:
         JSON: Validation result from the database (valid / error details).
@@ -312,12 +326,12 @@ def create_return():
     the locker has been physically opened for the customer.
 
     Request Body (JSON):
-        firstName (str)  — Customer's first name.
-        lastName  (str)  — Customer's last name.
-        items     (list) — Items being returned, each containing:
-            productId   (str) — Product identifier.
-            productName (str) — Human-readable product name.
-            quantity    (int) — Number of units returned.
+        firstName (str)  - Customer's first name.
+        lastName  (str)  - Customer's last name.
+        items     (list) - Items being returned, each containing:
+            productId   (str) - Product identifier.
+            productName (str) - Human-readable product name.
+            quantity    (int) - Number of units returned.
 
     Returns:
         JSON: Return record from the database.
@@ -339,6 +353,21 @@ def create_return():
 
 @app.get("/api/returns/lookup")
 def get_active_rentals_by_customer():
+    """Look up all active rentals for a given customer.
+
+    Used by the return flow to pre-populate the items the customer currently
+    has checked out so they can select what to return.
+
+    Query Parameters:
+        firstName (str) - Customer's first name.
+        lastName  (str) - Customer's last name.
+
+    Returns:
+        JSON: Array of active rental records for the customer.
+
+    Raises:
+        400: If ``firstName`` or ``lastName`` is missing.
+    """
     first_name = request.args.get("firstName", "").strip()
     last_name  = request.args.get("lastName", "").strip()
     if not first_name or not last_name:
@@ -347,7 +376,9 @@ def get_active_rentals_by_customer():
     return jsonify(rentals)
 
 
-# ───────────────────────────────── Locker ────────────────────────────────────
+# =============================================================================
+# Locker
+# =============================================================================
 
 @app.post("/api/locker/callback")
 def locker_callback():
@@ -359,7 +390,7 @@ def locker_callback():
     ``/api/locker/<command>`` can receive the final result.
 
     Request Body (JSON):
-        status (str) — Hardware confirmation: ``"open"`` or ``"closed"``.
+        status (str) - Hardware confirmation: ``"open"`` or ``"closed"``.
 
     Returns:
         JSON: ``{"ok": true}`` once the pending request is resolved.
@@ -404,10 +435,22 @@ def locker_close():
     return jsonify(_locker.request("close"))
 
 
-# ───────────────────────────── Error Handlers ────────────────────────────────
+# =============================================================================
+# Error Handlers
+# =============================================================================
 
 @app.errorhandler(404)
 def not_found(_):
+    """Handle 404 Not Found errors.
+
+    API routes return a JSON error response; all other paths fall through
+    to the SPA's ``index.html`` so the client-side router can render the
+    correct view.
+
+    Returns:
+        JSON: ``{"error": "Not found"}`` with HTTP 404 for ``/api/`` paths.
+        HTML: ``frontend/index.html`` for all other paths.
+    """
     if request.path.startswith("/api/"):
         return jsonify(error="Not found"), 404
     return send_from_directory(str(STATIC_DIR), "index.html")
@@ -415,10 +458,17 @@ def not_found(_):
 
 @app.errorhandler(500)
 def server_error(_):
+    """Handle 500 Internal Server Error responses.
+
+    Returns:
+        JSON: ``{"error": "Internal server error"}`` with HTTP 500.
+    """
     return jsonify(error="Internal server error"), 500
 
 
-# ────────────────────────── Static / SPA Fallback ────────────────────────────
+# =============================================================================
+# Static / SPA Fallback
+# =============================================================================
 
 @app.get("/")
 @app.get("/<path:_path>")
@@ -430,7 +480,7 @@ def spa(_path: str = ""):
     client-side router (React / vanilla JS) can handle the navigation.
 
     Args:
-        _path: The URL path requested by the browser — unused server-side;
+        _path: The URL path requested by the browser - unused server-side;
                routing is handled entirely by the frontend application.
 
     Returns:
@@ -439,7 +489,9 @@ def spa(_path: str = ""):
     return send_from_directory(str(STATIC_DIR), "index.html")
 
 
-# ─────────────────────────────── Entry Point ─────────────────────────────────
+# =============================================================================
+# Entry Point
+# =============================================================================
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

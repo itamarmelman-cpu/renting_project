@@ -1,13 +1,15 @@
-﻿"""
-inventory/database.py
----------------------
+"""
+===========================================================================
+inventory/database.py  -  GrabIt Renting System
+===========================================================================
 Thread-safe Python "database" for the GrabIt renting system.
 
 Data is held in memory as plain Python dicts/lists and persisted to three
 JSON files in inventory/data/:
-  - products.json   {productId: {...product fields...}}
-  - orders.json     {"_counter": int, "orders": {orderId: {...}}}
-  - returns.json    [{...return fields...}, ...]
+  - products.json      {productId: {...product fields...}}
+  - orders.json        {"_counter": int, "orders": {orderId: {...}}}
+  - returns.json       [{...return fields...}, ...]
+  - reservations.json  {"_counter": int, "reservations": {resId: {...}}}
 
 No SQL.  All queries are pure Python list/dict comprehensions.
 """
@@ -31,9 +33,12 @@ _RESERVATIONS_FILE  = DATA_DIR / "reservations.json"
 MAX_RESERVATION_DAYS = 5
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# =============================================================================
+# Helpers
+# =============================================================================
 
 def _now_iso() -> str:
+    """Return the current UTC timestamp as an ISO-8601 string."""
     return datetime.now(timezone.utc).isoformat()
 
 
@@ -44,7 +49,9 @@ def _atomic_write(path: Path, data) -> None:
     tmp.replace(path)
 
 
-# ── Database singleton ────────────────────────────────────────────────────────
+# =============================================================================
+# Database singleton
+# =============================================================================
 
 class Database:
     """
@@ -56,9 +63,12 @@ class Database:
     _instance: Optional["Database"] = None
     _class_lock = threading.Lock()
 
-    # ── Construction ──────────────────────────────────────────────────────────
+    # =========================================================================
+    # Construction
+    # =========================================================================
 
     def __init__(self):
+        """Initialise all in-memory collections and load persisted data from disk."""
         self._lock         = threading.RLock()
         self._products:     Dict[str, dict] = {}   # pid -> product dict
         self._orders:       Dict[str, dict] = {}   # oid -> order dict (items embedded)
@@ -70,14 +80,18 @@ class Database:
 
     @classmethod
     def get_instance(cls) -> "Database":
+        """Return the process-wide singleton, creating it on first call."""
         with cls._class_lock:
             if cls._instance is None:
                 cls._instance = cls()
         return cls._instance
 
-    # ── Persistence ───────────────────────────────────────────────────────────
+    # =========================================================================
+    # Persistence
+    # =========================================================================
 
     def _load(self):
+        """Load all JSON data files from disk into the in-memory collections."""
         if _PRODUCTS_FILE.exists():
             self._products = json.loads(_PRODUCTS_FILE.read_text(encoding="utf-8"))
 
@@ -95,24 +109,30 @@ class Database:
             self._reservations = raw.get("reservations", {})
 
     def _save_products(self):
+        """Atomically persist the current products dict to products.json."""
         _atomic_write(_PRODUCTS_FILE, self._products)
 
     def _save_orders(self):
+        """Atomically persist the current orders dict and counter to orders.json."""
         _atomic_write(_ORDERS_FILE, {"_counter": self._counter, "orders": self._orders})
 
     def _save_returns(self):
+        """Atomically persist the current returns list to returns.json."""
         _atomic_write(_RETURNS_FILE, self._returns)
 
     def _save_reservations(self):
+        """Atomically persist the current reservations dict and counter to reservations.json."""
         _atomic_write(_RESERVATIONS_FILE, {
             "_counter":     self._res_counter,
             "reservations": self._reservations,
         })
 
-    # ── Internal helpers ──────────────────────────────────────────────────────
+    # =========================================================================
+    # Internal helpers
+    # =========================================================================
 
     def _adjust_stock(self, product_id: str, delta: int):
-        """Add delta to a product's stock (delta can be negative for decrement)."""
+        """Add delta to a product's stock (use a negative delta to decrement)."""
         p = self._products.get(product_id)
         if p is None:
             return
@@ -154,11 +174,26 @@ class Database:
             ],
         }
 
+    def _return_to_api(self, r: dict) -> dict:
+        """Return a camelCase copy of a return record dict for the frontend."""
+        return {
+            "id":          r["id"],
+            "firstName":   r["first_name"],
+            "lastName":    r["last_name"],
+            "productId":   r["product_id"],
+            "productName": r["product_name"],
+            "quantity":    r["quantity"],
+            "createdAt":   r["returned_at"],
+        }
+
     def _expire_old_reservations(self) -> bool:
         """
         Mark active reservations past their expiry as 'expired' and restore stock.
+
         Must be called while self._lock is already held.
-        Returns True if any reservations were expired.
+
+        Returns:
+            True if any reservations were expired and saved, False otherwise.
         """
         now     = datetime.now(timezone.utc).isoformat()
         changed = False
@@ -173,22 +208,19 @@ class Database:
             self._save_products()
         return changed
 
-    def _return_to_api(self, r: dict) -> dict:
-        return {
-            "id":          r["id"],
-            "firstName":   r["first_name"],
-            "lastName":    r["last_name"],
-            "productId":   r["product_id"],
-            "productName": r["product_name"],
-            "quantity":    r["quantity"],
-            "createdAt":   r["returned_at"],
-        }
-
     def _available_for_return(self, customer_name: str, product_id: str) -> int:
         """
-        How many units of product_id can this customer still return?
-        = total rented by customer - total already returned by customer.
-        Pure Python — replaces the SQL SUM/JOIN query.
+        Calculate how many units of a product a customer can still return.
+
+        Computes: total units rented by the customer minus total units already
+        returned.  Pure Python - replaces the SQL SUM/JOIN query.
+
+        Args:
+            customer_name: Full name in "First Last" format.
+            product_id:    Product identifier to check.
+
+        Returns:
+            Number of units currently outstanding (>= 0).
         """
         rented = sum(
             item["quantity"]
@@ -205,15 +237,26 @@ class Database:
         )
         return rented - returned
 
-    # ── Products ──────────────────────────────────────────────────────────────
+    # =========================================================================
+    # Products
+    # =========================================================================
 
     def get_inventory(self) -> Dict[str, int]:
-        """Return {productId: stock} mapping for the frontend."""
+        """Return a ``{productId: stock}`` mapping for every product.
+
+        Returns:
+            Dict mapping each product ID to its current stock level.
+        """
         with self._lock:
             return {pid: p["stock"] for pid, p in self._products.items()}
 
     def update_inventory(self, updates: Dict[str, int]):
-        """Admin direct-set of stock values (POST /api/inventory)."""
+        """Directly overwrite stock values for one or more products (admin only).
+
+        Args:
+            updates: Mapping of ``{productId: newStock}``; only existing IDs
+                     are updated, unknown IDs are silently ignored.
+        """
         with self._lock:
             for pid, stock in updates.items():
                 if pid in self._products:
@@ -221,18 +264,41 @@ class Database:
             self._save_products()
 
     def get_all_products(self) -> List[dict]:
+        """Return every product in the catalogue as a list.
+
+        Returns:
+            List of all product dicts.
+        """
         with self._lock:
             return list(self._products.values())
 
     def get_product(self, product_id: str) -> Optional[dict]:
+        """Fetch a single product by ID.
+
+        Args:
+            product_id: Unique product identifier.
+
+        Returns:
+            The product dict, or ``None`` if not found.
+        """
         with self._lock:
             return self._products.get(product_id)
 
     def add_product(self, data: dict) -> dict:
-        """Add a new product; auto-generates an ID if not provided."""
+        """Add a new product and persist it.
+
+        Auto-generates an ID in the format ``pNNN`` if one is not supplied.
+
+        Args:
+            data: Product fields.  ``name`` is required; ``id``, ``type``,
+                  ``price``, ``stock``, ``visual``, ``image``, and
+                  ``search_terms`` are optional.
+
+        Returns:
+            The newly created product dict.
+        """
         with self._lock:
             if "id" not in data or not data["id"]:
-                # Generate next pNNN id
                 existing_nums = [
                     int(pid[1:]) for pid in self._products
                     if pid.startswith("p") and pid[1:].isdigit()
@@ -258,6 +324,20 @@ class Database:
             return product
 
     def update_product(self, product_id: str, updates: dict) -> Optional[dict]:
+        """Partially update an existing product's fields.
+
+        Only the keys present in ``updates`` are modified; all other fields
+        retain their current values.  Unknown or read-only keys are ignored.
+
+        Args:
+            product_id: Unique identifier of the product to update.
+            updates:    Dict of fields to change (name, description, type,
+                        price, stock, visual, image, search_terms,
+                        category_label, rent_label).
+
+        Returns:
+            The updated product dict, or ``None`` if the product was not found.
+        """
         with self._lock:
             p = self._products.get(product_id)
             if p is None:
@@ -271,6 +351,14 @@ class Database:
             return p
 
     def delete_product(self, product_id: str) -> bool:
+        """Permanently remove a product from the catalogue.
+
+        Args:
+            product_id: Unique identifier of the product to delete.
+
+        Returns:
+            ``True`` if the product was found and deleted, ``False`` otherwise.
+        """
         with self._lock:
             if product_id not in self._products:
                 return False
@@ -278,13 +366,23 @@ class Database:
             self._save_products()
             return True
 
-    # ── Orders ────────────────────────────────────────────────────────────────
+    # =========================================================================
+    # Orders
+    # =========================================================================
 
     def create_order(self, customer_name: str, provider: str, total: float,
                      items: List[dict]) -> dict:
-        """
-        Create an order, decrement stock for each item, and persist.
-        items: [{productId, quantity, rentDays, unitPrice}, ...]
+        """Create a completed order, decrement stock for each item, and persist.
+
+        Args:
+            customer_name: Full name of the customer.
+            provider:      Payment / service provider label.
+            total:         Total cost of the order.
+            items:         Line items, each a dict with keys ``productId``,
+                           ``quantity``, ``rentDays``, and ``unitPrice``.
+
+        Returns:
+            The created order as a camelCase API dict.
         """
         with self._lock:
             self._counter += 1
@@ -313,7 +411,6 @@ class Database:
             }
             self._orders[order_id] = order
 
-            # Decrement stock
             for item in stored_items:
                 self._adjust_stock(item["product_id"], -item["quantity"])
 
@@ -322,6 +419,11 @@ class Database:
             return self._order_to_api(order)
 
     def get_all_orders(self) -> List[dict]:
+        """Return every order sorted by creation date, newest first.
+
+        Returns:
+            List of all orders as camelCase API dicts.
+        """
         with self._lock:
             return [
                 self._order_to_api(o)
@@ -333,11 +435,28 @@ class Database:
             ]
 
     def get_order(self, order_id: str) -> Optional[dict]:
+        """Fetch a single order by ID.
+
+        Args:
+            order_id: Unique order identifier (e.g. ``ord_0001``).
+
+        Returns:
+            The order as a camelCase API dict, or ``None`` if not found.
+        """
         with self._lock:
             o = self._orders.get(order_id)
             return self._order_to_api(o) if o else None
 
     def update_order_status(self, order_id: str, status: str) -> Optional[dict]:
+        """Change the status of an existing order and persist the change.
+
+        Args:
+            order_id: Unique order identifier.
+            status:   New status string (e.g. ``"completed"``, ``"cancelled"``).
+
+        Returns:
+            The updated order as a camelCase API dict, or ``None`` if not found.
+        """
         with self._lock:
             o = self._orders.get(order_id)
             if o is None:
@@ -347,14 +466,25 @@ class Database:
             self._save_orders()
             return self._order_to_api(o)
 
-    # ── Returns ───────────────────────────────────────────────────────────────
+    # =========================================================================
+    # Returns
+    # =========================================================================
 
     def validate_return(self, first_name: str, last_name: str,
                         items: List[dict]) -> dict:
-        """
-        Check that the customer can return the requested items.
-        Returns {valid: bool, items/errors}.
-        items: [{productId, quantity}, ...]
+        """Check that the customer can return the requested items.
+
+        Verifies each item exists, is a rentable product, and that the customer
+        has enough outstanding units to return.  Does not modify any state.
+
+        Args:
+            first_name: Customer's first name.
+            last_name:  Customer's last name.
+            items:      Items to validate, each with ``productId`` and ``quantity``.
+
+        Returns:
+            ``{"valid": True, "items": [...]}`` when all items are returnable.
+            ``{"valid": False, "errors": [...]}`` when any item fails validation.
         """
         with self._lock:
             customer_name = f"{first_name} {last_name}"
@@ -391,9 +521,19 @@ class Database:
 
     def create_return(self, first_name: str, last_name: str,
                       items: List[dict]) -> dict:
-        """
-        Record a return, increment stock for each item, and persist.
-        items: [{productId, productName, quantity}, ...]
+        """Record a confirmed return, restore stock for each item, and persist.
+
+        Should only be called after ``validate_return`` succeeds and the locker
+        has been physically opened for the customer.
+
+        Args:
+            first_name: Customer's first name.
+            last_name:  Customer's last name.
+            items:      Items being returned, each with ``productId``,
+                        ``productName``, and ``quantity``.
+
+        Returns:
+            ``{"ok": True, "returns": [{returnId, productId, quantity}, ...]}``
         """
         with self._lock:
             now = _now_iso()
@@ -423,6 +563,11 @@ class Database:
             return {"ok": True, "returns": returned_items}
 
     def get_all_returns(self) -> List[dict]:
+        """Return every return record sorted by return date, newest first.
+
+        Returns:
+            List of all return records as camelCase API dicts.
+        """
         with self._lock:
             return [
                 self._return_to_api(r)
@@ -434,9 +579,13 @@ class Database:
             ]
 
     def get_active_rentals(self) -> List[dict]:
-        """
-        Products of type='rent' where total rented > total returned.
-        Replaces the SQL aggregation query.
+        """Return all rentable products that have more units rented than returned.
+
+        Replaces the SQL aggregation query with pure Python comprehensions.
+
+        Returns:
+            List of ``{"productId": ..., "productName": ...}`` dicts for every
+            product that still has at least one unit out on rental.
         """
         with self._lock:
             result = []
@@ -459,10 +608,19 @@ class Database:
             return result
 
     def get_rentals_by_customer(self, first_name: str, last_name: str) -> list:
-        """
-        Returns each product this customer currently has on rental (quantity
-        rented minus quantity already returned > 0), with the earliest expiry
+        """Return each product a specific customer currently has on rental.
+
+        For each product the customer has rented, returns the number of units
+        still outstanding (rented minus returned > 0) and the earliest expiry
         date across all their orders for that product.
+
+        Args:
+            first_name: Customer's first name.
+            last_name:  Customer's last name.
+
+        Returns:
+            List of dicts with keys ``productId``, ``productName``,
+            ``quantity``, and ``expiryDate``.
         """
         with self._lock:
             customer_name = f"{first_name} {last_name}"
@@ -494,18 +652,29 @@ class Database:
                 })
             return result
 
-    # ── Reservations ──────────────────────────────────────────────────────────
+    # =========================================================================
+    # Reservations
+    # =========================================================================
 
     def create_reservation(self, customer_name: str, items: List[dict]) -> dict:
-        """
-        Create a reservation and immediately deduct the reserved stock.
-        items: [{productId, quantity}, ...]
-        Returns {ok, reservation} on success or {ok: False, errors: [...]} on failure.
+        """Create a reservation and immediately deduct the reserved stock.
+
+        Validates that sufficient stock is available for every item before
+        committing any changes.  The reservation expires automatically after
+        ``MAX_RESERVATION_DAYS`` days if not collected.
+
+        Args:
+            customer_name: Full name of the student making the reservation.
+            items:         Items to reserve, each with ``productId`` and
+                           ``quantity``.
+
+        Returns:
+            ``{"ok": True, "reservation": {...}}`` on success.
+            ``{"ok": False, "errors": [...]}`` if any item lacks sufficient stock.
         """
         with self._lock:
             self._expire_old_reservations()
 
-            # Validate stock for every requested item before touching anything
             errors = []
             for item in items:
                 pid = item.get("productId", "")
@@ -546,7 +715,6 @@ class Database:
             }
             self._reservations[res_id] = reservation
 
-            # Deduct stock immediately — reservation holds these units
             for item in stored_items:
                 self._adjust_stock(item["product_id"], -item["quantity"])
 
@@ -555,9 +723,15 @@ class Database:
             return {"ok": True, "reservation": self._reservation_to_api(reservation)}
 
     def cancel_reservation(self, reservation_id: str) -> dict:
-        """
-        Cancel an active reservation and restore its stock to the pool.
-        Returns {ok, reservation} or {ok: False, error}.
+        """Cancel an active reservation and restore its stock to the pool.
+
+        Args:
+            reservation_id: Unique reservation identifier (e.g. ``res_0001``).
+
+        Returns:
+            ``{"ok": True, "reservation": {...}}`` on success.
+            ``{"ok": False, "error": "..."}`` if the reservation is not found
+            or is not in ``"active"`` status.
         """
         with self._lock:
             r = self._reservations.get(reservation_id)
@@ -575,7 +749,13 @@ class Database:
             return {"ok": True, "reservation": self._reservation_to_api(r)}
 
     def get_all_reservations(self) -> List[dict]:
-        """Return all reservations (newest first), auto-expiring stale ones first."""
+        """Return all reservations sorted by creation date, newest first.
+
+        Automatically expires stale active reservations before returning the list.
+
+        Returns:
+            List of all reservation dicts as camelCase API objects.
+        """
         with self._lock:
             self._expire_old_reservations()
             return [
@@ -588,16 +768,36 @@ class Database:
             ]
 
     def get_reservation(self, reservation_id: str) -> Optional[dict]:
+        """Fetch a single reservation by ID.
+
+        Args:
+            reservation_id: Unique reservation identifier (e.g. ``res_0001``).
+
+        Returns:
+            The reservation as a camelCase API dict, or ``None`` if not found.
+        """
         with self._lock:
             r = self._reservations.get(reservation_id)
             return self._reservation_to_api(r) if r else None
 
     def collect_reservation(self, reservation_id: str, provider: str,
                             rent_days: Dict[str, int]) -> dict:
-        """
-        Convert an active reservation into a completed order.
-        Stock is NOT deducted again — it was already deducted at reservation creation.
-        rent_days: {productId: days}
+        """Convert an active reservation into a completed order.
+
+        Stock is NOT deducted again - it was already deducted when the
+        reservation was created.  The total cost is computed from each item's
+        unit price, quantity, and rental duration.
+
+        Args:
+            reservation_id: Unique reservation identifier.
+            provider:       Payment provider label (e.g. ``"Apple Pay"``).
+            rent_days:      Mapping of ``{productId: numberOfDays}`` for each
+                            reserved item.
+
+        Returns:
+            ``{"ok": True, "order": {...}}`` on success.
+            ``{"ok": False, "error": "..."}`` if the reservation is not found
+            or is not in ``"active"`` status.
         """
         with self._lock:
             self._expire_old_reservations()
@@ -614,10 +814,10 @@ class Database:
             stored_items = []
             total = 0.0
             for item in r.get("items", []):
-                pid       = item["product_id"]
-                qty       = item["quantity"]
-                days      = int(rent_days.get(pid, 1))
-                product   = self._products.get(pid)
+                pid        = item["product_id"]
+                qty        = item["quantity"]
+                days       = int(rent_days.get(pid, 1))
+                product    = self._products.get(pid)
                 unit_price = float(product["price"]) if product else 0.0
                 total += unit_price * qty * days
                 stored_items.append({
@@ -641,14 +841,23 @@ class Database:
 
             r["status"] = "collected"
 
-            # Stock is not adjusted — was already deducted at reservation creation
+            # Stock is not adjusted - was already deducted at reservation creation
             self._save_reservations()
             self._save_orders()
             return {"ok": True, "order": self._order_to_api(order)}
 
-    # ── Stats ─────────────────────────────────────────────────────────────────
+    # =========================================================================
+    # Stats
+    # =========================================================================
 
     def get_stats(self) -> dict:
+        """Return high-level aggregate statistics for the dashboard.
+
+        Returns:
+            Dict with keys ``totalOrders``, ``totalReturns``,
+            ``totalItemsSold`` (sum of all item quantities across all orders),
+            and ``inventory`` (``{productId: stock}`` mapping).
+        """
         with self._lock:
             total_orders  = len(self._orders)
             total_returns = len(self._returns)

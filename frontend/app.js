@@ -1,4 +1,4 @@
-﻿import { CatalogPage }      from './pages/CatalogPage.js';
+import { CatalogPage }      from './pages/CatalogPage.js';
 import { CartPage }          from './pages/CartPage.js';
 import { CheckoutPage }      from './pages/CheckoutPage.js';
 import { LockerPage }        from './pages/LockerPage.js';
@@ -26,7 +26,9 @@ import {
 import { sendLockerServoCommand } from './services/lockerService.js';
 import { loadStoredJson, saveStoredJson, escapeHtml, formatDate } from './utils.js';
 
-// ===== Constants =====
+// =============================================================================
+// Constants
+// =============================================================================
 
 const ROUTES = new Set(['catalog', 'cart', 'checkout', 'locker', 'return', 'inventory', 'reserve', 'collect']);
 
@@ -37,7 +39,9 @@ const DEFAULT_FAQ = [
     { q: 'איך משלמים?',        a: 'מגיעים לעמוד התשלום, ממלאים שם פרטי ומשפחה ובוחרים אמצעי תשלום דמה.' },
 ];
 
-// ===== Shell / Routing State =====
+// =============================================================================
+// Shell / Routing State
+// =============================================================================
 
 let _isShellMounted = false;
 let _currentRoute = 'catalog';
@@ -51,7 +55,9 @@ const selectors = {
     routeLink: '[data-route-link]',
 };
 
-// ===== Initialisation =====
+// =============================================================================
+// Initialisation
+// =============================================================================
 
 /**
  * Bootstraps the application: loads persisted state, mounts the shell,
@@ -87,7 +93,9 @@ async function init() {
     navigateTo(initialPage);
 }
 
-// ===== Shell Rendering =====
+// =============================================================================
+// Shell Rendering
+// =============================================================================
 
 /**
  * Injects the persistent shell (header, main placeholder, footer, FABs) into
@@ -204,7 +212,9 @@ function renderFooterFaq(page) {
     `).join('');
 }
 
-// ===== Event Delegation =====
+// =============================================================================
+// Event Delegation
+// =============================================================================
 
 /**
  * Attaches a single delegated click listener on document for shell navigation,
@@ -245,7 +255,9 @@ function attachGlobalEventListeners() {
     main.addEventListener('submit', (event) => { _currentPage?.handleSubmit(event); });
 }
 
-// ===== Navigation =====
+// =============================================================================
+// Navigation
+// =============================================================================
 
 /**
  * Navigates to a page POM, pushing a history entry and re-rendering the content area.
@@ -306,7 +318,7 @@ function _createPageByRoute(route) {
 
 /**
  * Reads the URL hash and returns a valid ROUTES key, falling back to the default route.
- * @returns {string}
+ * @returns {string} A valid route key from ROUTES.
  */
 function _getRouteFromHash() {
     const route = location.hash.replace('#', '').split('?')[0];
@@ -316,7 +328,7 @@ function _getRouteFromHash() {
 /**
  * Returns the application's default route, read from data-default-route on <body>.
  * Falls back to 'catalog' if absent or unrecognised.
- * @returns {string}
+ * @returns {string} A valid route key from ROUTES.
  */
 function _getDefaultRoute() {
     const def = document.body.dataset.defaultRoute || 'catalog';
@@ -333,7 +345,9 @@ function _highlightActiveRoute(route) {
     });
 }
 
-// ===== Cart Badge =====
+// =============================================================================
+// Cart Badge
+// =============================================================================
 
 /**
  * Updates the cart badge count and visibility to reflect the current cart state.
@@ -347,7 +361,9 @@ function updateCartBadge() {
     badge.style.display = count === 0 ? 'none' : 'flex';
 }
 
-// ===== Application Context =====
+// =============================================================================
+// Application Context
+// =============================================================================
 
 /**
  * Shared context object injected into every page POM constructor.
@@ -398,13 +414,19 @@ const appContext = {
     formatDate,
 };
 
-// loginModal is defined after appContext so its onSuccess callback can safely
-// close over appContext without a temporal ordering issue.
+/**
+ * Application-level login modal instance.
+ * Defined after appContext so the onSuccess callback can reference appContext
+ * without a temporal ordering issue. On successful login, sets the admin flag
+ * and navigates directly to the inventory page.
+ */
 const loginModal = new LoginModal(() => {
     _isAdminAuthenticated = true;
     navigateTo(new InventoryPage(appContext));
 });
 
-// ===== Entry Point =====
+// =============================================================================
+// Entry Point
+// =============================================================================
 
 void init();

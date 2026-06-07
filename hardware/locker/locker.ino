@@ -26,7 +26,7 @@ void setLEDs(uint8_t r, uint8_t g, uint8_t b) {
   strip.show();
 }
 
-// Vivid saturated versions of the app palette — pastels become white on LEDs.
+// Vivid saturated versions of the app palette - pastels become white on LEDs.
 // Amber (mustard), Cyan (teal), Hot-pink (coral/danger), Yellow.
 // Each LED shows a different color; the assignment rotates every 100ms.
 void animateTransition() {
