@@ -1,7 +1,4 @@
-﻿// SHA-256 of "aguda" and "Aguda@2026!" — generated offline, never stored in plain text
-const ADMIN_USERNAME_HASH = 'af8564ea1741c50f76e2da72ab3551f977221c805bfbcbc4597d7c4f86f3af3f';
-const ADMIN_PASSWORD_HASH = '44857db783161db1302e7f458eef21e643767f5f4f64d827afb70ae82278b355';
-
+﻿
 export class LoginModal {
     constructor(onSuccess) {
         this.onSuccess = onSuccess;
@@ -78,25 +75,28 @@ export class LoginModal {
         submitBtn.disabled = true;
         submitBtn.textContent = 'מאמת...';
 
-        const [uHash, pHash] = await Promise.all([_sha256(username), _sha256(password)]);
+        try {
+            const resp = await fetch('/api/auth', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ username, password }),
+            });
+            const data = await resp.json();
+
+            if (data.ok) {
+                this.hide();
+                this.onSuccess();
+                return;
+            }
+        } catch (_) {
+            // network error — fall through to show error
+        }
 
         submitBtn.disabled = false;
         submitBtn.textContent = 'כניסה';
-
-        if (uHash === ADMIN_USERNAME_HASH && pHash === ADMIN_PASSWORD_HASH) {
-            this.hide();
-            this.onSuccess();
-        } else {
-            errorEl.hidden = false;
-            this._overlay.querySelector('#login-password').value = '';
-            this._overlay.querySelector('#login-password').focus();
-        }
+        errorEl.hidden = false;
+        this._overlay.querySelector('#login-password').value = '';
+        this._overlay.querySelector('#login-password').focus();
     }
 }
 
-// ===== Helpers =====
-
-async function _sha256(str) {
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-}

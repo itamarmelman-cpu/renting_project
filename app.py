@@ -60,6 +60,33 @@ def ping():
 
 
 # =============================================================================
+# Auth
+# =============================================================================
+
+_ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "Admin")
+_ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Admin123!")
+
+
+@app.post("/api/auth")
+def check_auth():
+    """Validate admin credentials.
+
+    Request Body (JSON):
+        username (str) - Admin username.
+        password (str) - Admin password.
+
+    Returns:
+        JSON: ``{"ok": true}`` on success, ``{"ok": false}`` with HTTP 401 on failure.
+    """
+    body     = request.get_json() or {}
+    username = body.get("username", "")
+    password = body.get("password", "")
+    if username == _ADMIN_USERNAME and password == _ADMIN_PASSWORD:
+        return jsonify(ok=True)
+    return jsonify(ok=False), 401
+
+
+# =============================================================================
 # Inventory
 # =============================================================================
 

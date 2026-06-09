@@ -110,6 +110,7 @@ function renderAppShell() {
                 <div class="app-logo logo-link" data-route-link="catalog">
                     <img src="catalog/logo-pics/GrabIt-Logo.png" alt="GrabIt Logo" class="logo-image-grabit">
                 </div>
+                <button class="hamburger-btn" id="hamburger-btn" aria-label="תפריט">&#9776;</button>
                 <div class="header-actions">
                     <button class="reservation-button" type="button" data-route-link="reserve">
                         הזמנה מוקדמת
@@ -223,6 +224,12 @@ function renderFooterFaq(page) {
  */
 function attachGlobalEventListeners() {
     document.addEventListener('click', (event) => {
+        // Hamburger toggle — opens/closes the mobile nav dropdown.
+        if (event.target.closest('#hamburger-btn')) {
+            document.querySelector('.header-actions')?.classList.toggle('is-open');
+            return;
+        }
+
         // Association login button — guarded; shows modal when not authenticated.
         if (event.target.closest('#assoc-login-btn')) {
             event.preventDefault();
@@ -270,6 +277,7 @@ function navigateTo(pageInstance) {
     _currentPage = pageInstance;
     _currentRoute = route;
     history.pushState(null, '', `#${route}`);
+    document.querySelector('.header-actions')?.classList.remove('is-open');
     _renderPageContent();
 }
 
