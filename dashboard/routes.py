@@ -12,7 +12,7 @@ Flask Blueprint for the admin/association-facing API endpoints:
 All business logic is delegated to inventory.database.Database.
 """
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, session
 from inventory.database import Database
 from dashboard.stats import compute_stats
 
@@ -21,6 +21,13 @@ dashboard_bp = Blueprint("dashboard", __name__)
 
 def _db() -> Database:
     return Database.get_instance()
+
+
+@dashboard_bp.before_request
+def _require_admin():
+    """Reject any request to the dashboard blueprint that lacks an admin session."""
+    if not session.get("is_admin"):
+        return jsonify(error="Unauthorized"), 401
 
 
 # ── Stats ─────────────────────────────────────────────────────────────────────

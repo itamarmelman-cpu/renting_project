@@ -75,6 +75,7 @@ export class CheckoutPage {
      * @returns {LockerPage|null} The LockerPage instance on success, null on validation failure.
      */
     async submitPayment(provider) {
+        if (this._submitting) return;
         const formData = this._collectFormData();
         if (!formData) return;
 
@@ -91,33 +92,55 @@ export class CheckoutPage {
             }
         }
 
+        this._submitting = true;
+        document.querySelectorAll(this.selectors.paymentBtn).forEach((btn) => {
+            btn.disabled = true;
+            btn.style.opacity = '0.6';
+        });
+
         const orderTotal     = app.calculateCartTotal();
         const purchasedItems = app.state.cart.map((item) => ({
             ...item,
             unitPrice: app.getProductById(item.productId)?.price || 0,
         }));
 
-        const res = await fetch('/api/orders', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({
-                customerName: `${firstName} ${lastName}`,
-                provider,
-                total:        orderTotal,
-                items:        purchasedItems,
-            }),
-        });
-        if (!res.ok) return;
+        try {
+            const res = await fetch('/api/orders', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({
+                    customerName: `${firstName} ${lastName}`,
+                    provider,
+                    total:        orderTotal,
+                    items:        purchasedItems,
+                }),
+            });
 
-        const { order } = await res.json();
+            if (!res.ok) {
+                this._submitting = false;
+                document.querySelectorAll(this.selectors.paymentBtn).forEach((btn) => {
+                    btn.disabled = false;
+                    btn.style.opacity = '';
+                });
+                return;
+            }
 
-        // Backend has deducted stock — sync local state and clear cart
-        await app.refreshFromBackend();
-        app.clearCart();
-        app.state.lockerOpen = false;
-        app.saveStoredJson('grabit.checkoutContext', { ...order, provider, items: purchasedItems });
+            const { order } = await res.json();
 
-        this.goToLocker();
+            // Backend has deducted stock — sync local state and clear cart
+            await app.refreshFromBackend();
+            app.clearCart();
+            app.state.lockerOpen = false;
+            app.saveStoredJson('grabit.checkoutContext', { ...order, provider, items: purchasedItems });
+
+            this.goToLocker();
+        } catch {
+            this._submitting = false;
+            document.querySelectorAll(this.selectors.paymentBtn).forEach((btn) => {
+                btn.disabled = false;
+                btn.style.opacity = '';
+            });
+        }
     }
 
     // ===== Event Handler Methods =====

@@ -268,10 +268,13 @@ export class InventoryPage {
         let rentalRevenue = 0, totalRentDays = 0, rentItemCount = 0;
         const productCounts = {};
         const hourlyCounts  = new Array(24).fill(0);
+        const dailyCounts   = new Array(7).fill(0);
 
         orders.forEach((order) => {
             if (order.createdAt) {
-                hourlyCounts[new Date(order.createdAt).getHours()]++;
+                const d = new Date(order.createdAt);
+                hourlyCounts[d.getHours()]++;
+                dailyCounts[d.getDay()]++;
             }
 
             (order.items || []).forEach((item) => {
@@ -342,6 +345,7 @@ export class InventoryPage {
             totalOrders: orders.length,
             productCounts,
             hourlyCounts,
+            dailyCounts,
         };
     }
 
@@ -674,9 +678,10 @@ export class InventoryPage {
             totalOrders    = 0,
             productCounts  = {},
             hourlyCounts   = new Array(24).fill(0),
+            dailyCounts    = new Array(7).fill(0),
         } = summary || {};
 
-        // ── Hourly bar chart ──────────────────────────────────────────────────
+        // ── Hourly bar chart ─────────────────────────────────────────────────
         const maxHourly  = Math.max(...hourlyCounts, 1);
         const hourBars   = hourlyCounts.map((count, hour) => {
             const h = Math.max(2, Math.round((count / maxHourly) * 110));
@@ -697,6 +702,17 @@ export class InventoryPage {
                         <span class="hbar-label" title="${app.escapeHtml(name)}">${app.escapeHtml(name)}</span>
                         <div class="hbar-track"><div class="hbar-fill" style="width:${pct}%;"></div></div>
                         <span class="hbar-value">${count}</span>
+                    </div>`;
+        }).join('');
+
+        // ── Weekly bar chart ─────────────────────────────────────────────────
+        const DAY_LABELS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+        const maxDaily   = Math.max(...dailyCounts, 1);
+        const dayBars    = dailyCounts.map((count, day) => {
+            const h = Math.max(2, Math.round((count / maxDaily) * 110));
+            return `<div class="bar-wrap" title="${DAY_LABELS[day]} - ${count} הזמנות">
+                        <div class="bar bar--weekly" style="height:${h}px;"></div>
+                        <span class="bar-label">${DAY_LABELS[day]}</span>
                     </div>`;
         }).join('');
 
@@ -777,8 +793,14 @@ export class InventoryPage {
                 </div>
             </div>
 
-            <!-- ── Insights Row ───────────────────────────────────────── -->
-            <div class="dashboard-insights-grid">
+            <!-- ── Weekly Chart + Revenue Split ─────────────────────── -->
+            <div class="dashboard-charts-grid">
+                <div class="card dashboard-chart-card">
+                    <h4 class="chart-title">הזמנות לפי יום בשבוע</h4>
+                    <div class="bar-chart-wrap dashboard-chart-inner">
+                        <div class="bar-chart-bars bar-chart-bars--weekly">${dayBars}</div>
+                    </div>
+                </div>
                 <div class="card insight-card">
                     <h4 class="insight-title">פירוט הכנסות</h4>
                     ${totalRev > 0 ? `
@@ -800,6 +822,28 @@ export class InventoryPage {
                         </div>
                         <div class="revenue-total">סה"כ: <strong>${totalRevenue.toFixed(0)} ₪</strong></div>
                     ` : `<div class="inventory-empty-state insight-empty">אין נתוני הכנסות עדיין</div>`}
+                </div>
+            </div>
+
+            <!-- ── Insights Row ───────────────────────────────────────── -->
+            <div class="dashboard-insights-grid">
+                <div class="card insight-card">
+                    <h4 class="insight-title">
+                        מסתיים בקרוב
+                        ${dueSoon.length ? `<span class="insight-badge insight-badge-danger">${dueSoon.length}</span>` : ''}
+                    </h4>
+                    ${dueSoon.length ? `
+                        <ul class="insight-list">
+                            ${dueSoon.map((r) => `
+                                <li class="insight-list-item">
+                                    <div class="insight-item-info">
+                                        <strong>${app.escapeHtml(r.productName)}</strong>
+                                        <span>${app.escapeHtml(r.customerName)}</span>
+                                    </div>
+                                    <span class="due-badge">היום</span>
+                                </li>`).join('')}
+                        </ul>
+                    ` : `<div class="inventory-empty-state insight-empty insight-ok">אין פריטים המסתיימים היום</div>`}
                 </div>
 
                 <div class="card insight-card">
@@ -847,25 +891,6 @@ export class InventoryPage {
                             }).join('')}
                         </ul>
                     ` : `<div class="inventory-empty-state insight-empty insight-ok">אין הזמנות מוקדמות פעילות</div>`}
-                </div>
-
-                <div class="card insight-card">
-                    <h4 class="insight-title">
-                        מסתיים בקרוב
-                        ${dueSoon.length ? `<span class="insight-badge insight-badge-danger">${dueSoon.length}</span>` : ''}
-                    </h4>
-                    ${dueSoon.length ? `
-                        <ul class="insight-list">
-                            ${dueSoon.map((r) => `
-                                <li class="insight-list-item">
-                                    <div class="insight-item-info">
-                                        <strong>${app.escapeHtml(r.productName)}</strong>
-                                        <span>${app.escapeHtml(r.customerName)}</span>
-                                    </div>
-                                    <span class="due-badge">היום</span>
-                                </li>`).join('')}
-                        </ul>
-                    ` : `<div class="inventory-empty-state insight-empty insight-ok">אין פריטים המסתיימים היום</div>`}
                 </div>
             </div>
         `;

@@ -202,7 +202,7 @@ export class CartPage {
                     <button type="button" class="icon-button" data-action="remove-cart-item" data-product-id="${product.id}">×</button>
                 </div>
                 <div class="cart-item-bottom">
-                    <span class="cart-item-price-tag">${product.price} ₪ <span class="per-day-label">ליום</span></span>
+                    <span class="cart-item-price-tag">${product.price} ₪${product.type === 'rent' ? ' <span class="per-day-label">ליום</span>' : ''}</span>
                     <div class="cart-controls-group">
                         <div class="cart-control-row">
                             <span class="control-label">כמות</span>
@@ -210,12 +210,13 @@ export class CartPage {
                             <strong class="control-value">${cartItem.quantity}</strong>
                             <button type="button" class="quantity-button" data-action="change-cart-quantity" data-product-id="${product.id}" data-delta="1">+</button>
                         </div>
+                        ${product.type === 'rent' ? `
                         <div class="cart-control-row">
                             <span class="control-label">ימים</span>
                             <button type="button" class="quantity-button" data-action="change-cart-days" data-product-id="${product.id}" data-delta="-1">−</button>
                             <strong class="control-value">${cartItem.rentDays}</strong>
                             <button type="button" class="quantity-button" data-action="change-cart-days" data-product-id="${product.id}" data-delta="1">+</button>
-                        </div>
+                        </div>` : ''}
                     </div>
                     <span class="cart-item-total">${itemTotal} ₪</span>
                 </div>

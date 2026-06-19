@@ -19,10 +19,13 @@ Run:
 """
 from __future__ import annotations
 
+import functools
+import hmac
 import os
+import secrets
 from pathlib import Path
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, session
 
 from inventory.database import Database
 from lock.controller import LockerController
@@ -37,8 +40,20 @@ BASE_DIR   = Path(__file__).parent
 STATIC_DIR = BASE_DIR / "frontend"
 
 app = Flask(__name__, static_folder=STATIC_DIR, static_url_path="")
-app.secret_key = os.environ.get("SECRET_KEY", "dev-change-me-in-production")
+# Use the env-var key in production; fall back to a per-process random key in
+# development so the committed source never contains a known secret.
+app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 app.register_blueprint(dashboard_bp)
+
+
+def _require_admin(f):
+    """Decorator: reject requests that don't carry a valid admin session."""
+    @functools.wraps(f)
+    def _guarded(*args, **kwargs):
+        if not session.get("is_admin"):
+            return jsonify(error="Unauthorized"), 401
+        return f(*args, **kwargs)
+    return _guarded
 
 # Singletons - initialised once at startup
 _db     = Database.get_instance()
@@ -69,7 +84,10 @@ _ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Admin123!")
 
 @app.post("/api/auth")
 def check_auth():
-    """Validate admin credentials.
+    """Validate admin credentials and open a server-side session.
+
+    Uses constant-time comparison (``hmac.compare_digest``) to prevent
+    timing-based credential enumeration.
 
     Request Body (JSON):
         username (str) - Admin username.
@@ -81,9 +99,23 @@ def check_auth():
     body     = request.get_json() or {}
     username = body.get("username", "")
     password = body.get("password", "")
-    if username == _ADMIN_USERNAME and password == _ADMIN_PASSWORD:
+    ok = hmac.compare_digest(username, _ADMIN_USERNAME) and \
+         hmac.compare_digest(password, _ADMIN_PASSWORD)
+    if ok:
+        session["is_admin"] = True
         return jsonify(ok=True)
     return jsonify(ok=False), 401
+
+
+@app.post("/api/auth/logout")
+def logout():
+    """Destroy the current admin session.
+
+    Returns:
+        JSON: ``{"ok": true}``
+    """
+    session.clear()
+    return jsonify(ok=True)
 
 
 # =============================================================================
@@ -101,6 +133,7 @@ def get_inventory():
 
 
 @app.post("/api/inventory")
+@_require_admin
 def set_inventory():
     """Overwrite stock values for one or more products (admin only).
 
@@ -139,6 +172,7 @@ def list_products():
 
 
 @app.post("/api/products")
+@_require_admin
 def add_product():
     """Create a new product and add it to the inventory.
 
@@ -162,6 +196,7 @@ def add_product():
 
 
 @app.put("/api/products/<product_id>")
+@_require_admin
 def update_product(product_id: str):
     """Edit an existing product's fields (partial update).
 
@@ -188,6 +223,7 @@ def update_product(product_id: str):
 
 
 @app.delete("/api/products/<product_id>")
+@_require_admin
 def delete_product(product_id: str):
     """Permanently remove a product from the catalogue.
 
@@ -234,12 +270,15 @@ def create_order():
     if not isinstance(body.get("items"), list):
         return jsonify(error="Invalid order"), 400
 
-    order = _db.create_order(
-        customer_name=body.get("customerName", ""),
-        provider=body.get("provider", "Unknown"),
-        total=float(body.get("total", 0)),
-        items=body["items"],
-    )
+    try:
+        order = _db.create_order(
+            customer_name=body.get("customerName", ""),
+            provider=body.get("provider", "Unknown"),
+            total=float(body.get("total", 0)),
+            items=body["items"],
+        )
+    except ValueError as exc:
+        return jsonify(ok=False, error=str(exc)), 400
     return jsonify(ok=True, order=order)
 
 
@@ -301,6 +340,9 @@ def collect_reservation(reservation_id: str):
     body      = request.get_json() or {}
     provider  = body.get("provider", "Unknown")
     rent_days = body.get("rentDays", {})
+
+    if not isinstance(rent_days, dict):
+        return jsonify(error="rentDays must be a {productId: days} object"), 400
 
     result = _db.collect_reservation(reservation_id, provider, rent_days)
     if not result.get("ok"):

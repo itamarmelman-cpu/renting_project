@@ -158,6 +158,12 @@ export class CatalogPage {
      *
      * @returns {string} HTML string for the catalog page.
      */
+    afterRender() {
+        if (this._refreshed) return;
+        this._refreshed = true;
+        this.app.refreshFromBackend().then(() => this.app.rerender());
+    }
+
     render() {
         const { app, searchQuery } = this;
         const filtered = app.products.filter((product) => {
@@ -273,7 +279,9 @@ export class CatalogPage {
             ? `<img src="${app.escapeHtml(product.image)}" alt="${app.escapeHtml(product.name)}" class="product-image">`
             : `<div class="product-icon">${app.escapeHtml(product.visual)}</div>`;
 
-        const priceHtml = `${product.price}<span class="product-currency">₪</span><span class="price-per-day"> ליום</span>`;
+        const priceHtml = product.type === 'rent'
+            ? `${product.price}<span class="product-currency">₪</span><span class="price-per-day"> ליום</span>`
+            : `${product.price}<span class="product-currency">₪</span>`;
 
         return `
             <article class="product-card" data-product-id="${app.escapeHtml(product.id)}">
@@ -287,7 +295,7 @@ export class CatalogPage {
                     </div>
                     <div class="product-price">${priceHtml}</div>
                 </div>
-                ${this._renderRentDaySelector(product.id, selectedDays)}
+                ${product.type === 'rent' ? this._renderRentDaySelector(product.id, selectedDays) : ''}
                 <button type="button" class="btn btn-primary btn-block add-to-cart-btn"
                     data-action="add-to-cart"
                     data-product-id="${app.escapeHtml(product.id)}">

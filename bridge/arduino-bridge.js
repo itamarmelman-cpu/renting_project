@@ -16,11 +16,17 @@ const parser  = arduino.pipe(new ReadlineParser({ delimiter: "\n" }));
 
 // Internal state mirror — kept in sync with every Arduino message
 // null = unknown (bridge just started, Arduino not yet connected)
-let currentState = null; // 'open' | 'closed' | null
+let currentState  = null;  // 'open' | 'closed' | null
+let isConnecting  = false; // true while arduino.open() is in-flight
 
 function connectArduino() {
-  if (arduino.isOpen) return;
+  // Guard against both "already open" and "open() call in-flight".
+  // arduino.isOpen is false while open() is pending, so without isConnecting
+  // two concurrent callers would both call arduino.open() simultaneously.
+  if (arduino.isOpen || isConnecting) return;
+  isConnecting = true;
   arduino.open((err) => {
+    isConnecting = false;
     if (err) {
       console.log("Arduino not connected:", err.message, "— retrying in 3s");
       setTimeout(connectArduino, 3000);
@@ -32,6 +38,7 @@ function connectArduino() {
 
 arduino.on("close", () => {
   console.log("Arduino disconnected — retrying in 3s");
+  isConnecting = false; // reset in case close fires while open was in-flight
   setTimeout(connectArduino, 3000);
 });
 

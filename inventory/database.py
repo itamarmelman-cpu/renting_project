@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import json
 import threading
-import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -74,6 +73,7 @@ class Database:
         self._orders:       Dict[str, dict] = {}   # oid -> order dict (items embedded)
         self._returns:      List[dict]      = []   # list of return dicts
         self._counter:      int             = 0    # next order number
+        self._ret_counter:  int             = 0    # next return number
         self._reservations: Dict[str, dict] = {}   # rid -> reservation dict
         self._res_counter:  int             = 0    # next reservation number
         self._load()
@@ -101,7 +101,20 @@ class Database:
             self._orders  = raw.get("orders", {})
 
         if _RETURNS_FILE.exists():
-            self._returns = json.loads(_RETURNS_FILE.read_text(encoding="utf-8"))
+            raw = json.loads(_RETURNS_FILE.read_text(encoding="utf-8"))
+            if isinstance(raw, list):
+                # Migrate from old bare-list format to {_counter, returns} format.
+                # Use the max numeric suffix across all IDs rather than len() so that
+                # records manually removed from the JSON file cannot cause counter
+                # collisions with previously-issued IDs.
+                self._returns     = raw
+                self._ret_counter = max(
+                    (int(r["id"].split("_")[1]) for r in raw if r.get("id", "").startswith("ret_")),
+                    default=0,
+                )
+            else:
+                self._ret_counter = raw.get("_counter", 0)
+                self._returns     = raw.get("returns", [])
 
         if _RESERVATIONS_FILE.exists():
             raw = json.loads(_RESERVATIONS_FILE.read_text(encoding="utf-8"))
@@ -117,8 +130,8 @@ class Database:
         _atomic_write(_ORDERS_FILE, {"_counter": self._counter, "orders": self._orders})
 
     def _save_returns(self):
-        """Atomically persist the current returns list to returns.json."""
-        _atomic_write(_RETURNS_FILE, self._returns)
+        """Atomically persist the current returns list and counter to returns.json."""
+        _atomic_write(_RETURNS_FILE, {"_counter": self._ret_counter, "returns": self._returns})
 
     def _save_reservations(self):
         """Atomically persist the current reservations dict and counter to reservations.json."""
@@ -195,10 +208,11 @@ class Database:
         Returns:
             True if any reservations were expired and saved, False otherwise.
         """
-        now     = datetime.now(timezone.utc).isoformat()
+        now     = datetime.now(timezone.utc)
         changed = False
         for r in self._reservations.values():
-            if r["status"] == "active" and r["expires_at"] < now:
+            expires_at = datetime.fromisoformat(r["expires_at"].replace("Z", "+00:00"))
+            if r["status"] == "active" and expires_at < now:
                 r["status"] = "expired"
                 for item in r.get("items", []):
                     self._adjust_stock(item["product_id"], item["quantity"])
@@ -226,6 +240,7 @@ class Database:
             item["quantity"]
             for o in self._orders.values()
             if o["customer_name"] == customer_name
+            and o.get("status") != "cancelled"
             for item in o.get("items", [])
             if item["product_id"] == product_id
         )
@@ -383,8 +398,27 @@ class Database:
 
         Returns:
             The created order as a camelCase API dict.
+
+        Raises:
+            ValueError: If any item references an unknown product or requests
+                        more units than are currently in stock.
         """
         with self._lock:
+            errors = []
+            for item in items:
+                pid = item.get("productId", "")
+                qty = int(item.get("quantity", 1))
+                product = self._products.get(pid)
+                if not product:
+                    errors.append(f"מוצר {pid} לא נמצא")
+                elif product["stock"] < qty:
+                    errors.append(
+                        f"{product['name']}: אין מספיק מלאי "
+                        f"(נדרש {qty}, זמין {product['stock']})"
+                    )
+            if errors:
+                raise ValueError("; ".join(errors))
+
             self._counter += 1
             order_id = f"ord_{str(self._counter).zfill(4)}"
             now = _now_iso()
@@ -405,6 +439,7 @@ class Database:
                 "payment_provider": provider,
                 "total":            total,
                 "status":           "completed",
+                "source":           "direct",
                 "created_at":       now,
                 "updated_at":       now,
                 "items":            stored_items,
@@ -450,9 +485,21 @@ class Database:
     def update_order_status(self, order_id: str, status: str) -> Optional[dict]:
         """Change the status of an existing order and persist the change.
 
+        Only the transition ``completed → cancelled`` is permitted. Attempting
+        to move an already-cancelled order to any other status is a no-op that
+        returns the current order unchanged, preventing both double stock-restore
+        and stock-inflation from backward transitions.
+
+        Stock is restored on cancellation only for orders created directly via
+        ``create_order`` (``source == "direct"``).  Orders that originated from
+        ``collect_reservation`` had their stock deducted at reservation-creation
+        time, not at order-creation time, so restoring stock here would inflate
+        inventory beyond the physical count.
+
         Args:
             order_id: Unique order identifier.
-            status:   New status string (e.g. ``"completed"``, ``"cancelled"``).
+            status:   New status string (only ``"cancelled"`` has an effect beyond
+                      the status field itself).
 
         Returns:
             The updated order as a camelCase API dict, or ``None`` if not found.
@@ -461,8 +508,23 @@ class Database:
             o = self._orders.get(order_id)
             if o is None:
                 return None
+            previous_status = o["status"]
+
+            # Guard: once cancelled an order cannot be moved to any other status.
+            if previous_status == "cancelled" and status != "cancelled":
+                return self._order_to_api(o)
+
             o["status"]     = status
             o["updated_at"] = _now_iso()
+
+            if status == "cancelled" and previous_status != "cancelled":
+                # Only restore stock for directly-placed orders; reservation-sourced
+                # orders had stock deducted at reservation creation, not here.
+                if o.get("source", "direct") == "direct":
+                    for item in o.get("items", []):
+                        self._adjust_stock(item["product_id"], item["quantity"])
+                    self._save_products()
+
             self._save_orders()
             return self._order_to_api(o)
 
@@ -543,7 +605,8 @@ class Database:
                 pid   = entry["productId"]
                 pname = entry.get("productName", "")
                 qty   = int(entry.get("quantity", 1))
-                ret_id = f"ret_{int(time.time() * 1000)}_{pid}"
+                self._ret_counter += 1
+                ret_id = f"ret_{str(self._ret_counter).zfill(4)}"
 
                 record = {
                     "id":           ret_id,
@@ -595,6 +658,7 @@ class Database:
                 rented = sum(
                     item["quantity"]
                     for o in self._orders.values()
+                    if o.get("status") != "cancelled"
                     for item in o.get("items", [])
                     if item["product_id"] == pid
                 )
@@ -629,6 +693,8 @@ class Database:
             for order in self._orders.values():
                 if order["customer_name"] != customer_name:
                     continue
+                if order.get("status") == "cancelled":
+                    continue
                 created_dt = datetime.fromisoformat(order["created_at"].replace("Z", "+00:00"))
                 for item in order.get("items", []):
                     pid = item["product_id"]
@@ -648,7 +714,7 @@ class Database:
                     "productId":   pid,
                     "productName": product.get("name", pid),
                     "quantity":    available,
-                    "expiryDate":  min(expiries).isoformat(),
+                    "expiryDate":  max(expiries).isoformat(),
                 })
             return result
 
@@ -833,6 +899,7 @@ class Database:
                 "payment_provider": provider,
                 "total":            total,
                 "status":           "completed",
+                "source":           "reservation",
                 "created_at":       now,
                 "updated_at":       now,
                 "items":            stored_items,
@@ -864,6 +931,7 @@ class Database:
             total_items   = sum(
                 item["quantity"]
                 for o in self._orders.values()
+                if o.get("status") != "cancelled"
                 for item in o.get("items", [])
             )
             inventory = {pid: p["stock"] for pid, p in self._products.items()}

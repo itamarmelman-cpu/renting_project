@@ -1,12 +1,12 @@
-import { CatalogPage }      from './pages/CatalogPage.js';
-import { CartPage }          from './pages/CartPage.js';
-import { CheckoutPage }      from './pages/CheckoutPage.js';
-import { LockerPage }        from './pages/LockerPage.js';
-import { ReturnPage }        from './pages/ReturnPage.js';
-import { InventoryPage }     from './pages/InventoryPage.js';
-import { ReservationPage }         from './pages/ReservationPage.js';
-import { CollectReservationPage }  from './pages/CollectReservationPage.js';
-import { LoginModal }              from './pages/LoginModal.js';
+import { CatalogPage }      from './pages/CatalogPage.js?v=3';
+import { CartPage }          from './pages/CartPage.js?v=2';
+import { CheckoutPage }      from './pages/CheckoutPage.js?v=2';
+import { LockerPage }        from './pages/LockerPage.js?v=2';
+import { ReturnPage }        from './pages/ReturnPage.js?v=2';
+import { InventoryPage }     from './pages/InventoryPage.js?v=2';
+import { ReservationPage }         from './pages/ReservationPage.js?v=2';
+import { CollectReservationPage }  from './pages/CollectReservationPage.js?v=2';
+import { LoginModal }              from './pages/LoginModal.js?v=2';
 
 import {
     STORAGE_KEYS,
@@ -21,10 +21,10 @@ import {
     setRentDaysPreference, getRentDaysPreference,
     saveOrder, incrementInventoryForReturn,
     validateReturn, saveReturnToLocal, getActiveRentedProductIds,
-} from './store.js';
+} from './store.js?v=2';
 
-import { sendLockerServoCommand } from './services/lockerService.js';
-import { loadStoredJson, saveStoredJson, escapeHtml, formatDate } from './utils.js';
+import { sendLockerServoCommand } from './services/lockerService.js?v=2';
+import { loadStoredJson, saveStoredJson, escapeHtml, formatDate } from './utils.js?v=2';
 
 // =============================================================================
 // Constants
@@ -110,6 +110,12 @@ function renderAppShell() {
                 <div class="app-logo logo-link" data-route-link="catalog">
                     <img src="catalog/logo-pics/GrabIt-Logo.png" alt="GrabIt Logo" class="logo-image-grabit">
                 </div>
+                <button class="cart-button mobile-cart-btn" type="button" data-route-link="cart" aria-label="עגלה">
+                    <div class="cart-icon-wrapper">
+                        <img src="catalog/logo-pics/CartIcon.png" alt="עגלה" class="cart-icon-image">
+                    </div>
+                    <span class="cart-badge" style="display: none;">0</span>
+                </button>
                 <button class="hamburger-btn" id="hamburger-btn" aria-label="תפריט">&#9776;</button>
                 <div class="header-actions">
                     <button class="reservation-button" type="button" data-route-link="reserve">
@@ -362,11 +368,11 @@ function _highlightActiveRoute(route) {
  * Called after every navigation and cart mutation.
  */
 function updateCartBadge() {
-    const badge = document.getElementById('cart-badge');
-    if (!badge) return;
     const count = getCartItemCount();
-    badge.textContent = String(count);
-    badge.style.display = count === 0 ? 'none' : 'flex';
+    document.querySelectorAll('.cart-badge').forEach(badge => {
+        badge.textContent = String(count);
+        badge.style.display = count === 0 ? 'none' : 'flex';
+    });
 }
 
 // =============================================================================

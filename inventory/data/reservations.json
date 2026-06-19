@@ -1,5 +1,5 @@
 {
-  "_counter": 7,
+  "_counter": 16,
   "reservations": {
     "res_0001": {
       "id": "res_0001",
@@ -88,6 +88,123 @@
       "items": [
         {
           "product_id": "p004",
+          "quantity": 1
+        }
+      ]
+    },
+    "res_0008": {
+      "id": "res_0008",
+      "customer_name": "זוהר כהן",
+      "status": "active",
+      "created_at": "2026-06-08T06:30:00.000Z",
+      "expires_at": "2026-06-13T06:30:00.000Z",
+      "items": [
+        {
+          "product_id": "p003",
+          "quantity": 1
+        }
+      ]
+    },
+    "res_0009": {
+      "id": "res_0009",
+      "customer_name": "אפרת לוי",
+      "status": "active",
+      "created_at": "2026-06-08T11:15:00.000Z",
+      "expires_at": "2026-06-13T11:15:00.000Z",
+      "items": [
+        {
+          "product_id": "p003",
+          "quantity": 1
+        }
+      ]
+    },
+    "res_0010": {
+      "id": "res_0010",
+      "customer_name": "יואב שמיר",
+      "status": "active",
+      "created_at": "2026-06-08T17:00:00.000Z",
+      "expires_at": "2026-06-13T17:00:00.000Z",
+      "items": [
+        {
+          "product_id": "p003",
+          "quantity": 1
+        }
+      ]
+    },
+    "res_0011": {
+      "id": "res_0011",
+      "customer_name": "נגה ביטון",
+      "status": "active",
+      "created_at": "2026-06-09T04:55:00.000Z",
+      "expires_at": "2026-06-14T04:55:00.000Z",
+      "items": [
+        {
+          "product_id": "p003",
+          "quantity": 1
+        }
+      ]
+    },
+    "res_0012": {
+      "id": "res_0012",
+      "customer_name": "עמרי פינטו",
+      "status": "active",
+      "created_at": "2026-06-09T05:20:00.000Z",
+      "expires_at": "2026-06-14T05:20:00.000Z",
+      "items": [
+        {
+          "product_id": "p003",
+          "quantity": 1
+        }
+      ]
+    },
+    "res_0013": {
+      "id": "res_0013",
+      "customer_name": "שני ארזי",
+      "status": "active",
+      "created_at": "2026-06-09T17:00:00.000Z",
+      "expires_at": "2026-06-14T17:00:00.000Z",
+      "items": [
+        {
+          "product_id": "p003",
+          "quantity": 1
+        }
+      ]
+    },
+    "res_0014": {
+      "id": "res_0014",
+      "customer_name": "עמית קליינמן",
+      "status": "active",
+      "created_at": "2026-06-11T07:56:41.238501+00:00",
+      "expires_at": "2026-06-16T07:56:41.238501+00:00",
+      "items": [
+        {
+          "product_id": "p001",
+          "quantity": 1
+        }
+      ]
+    },
+    "res_0015": {
+      "id": "res_0015",
+      "customer_name": "עומר דורון",
+      "status": "active",
+      "created_at": "2026-06-11T13:29:27.940523+00:00",
+      "expires_at": "2026-06-16T13:29:27.940523+00:00",
+      "items": [
+        {
+          "product_id": "p002",
+          "quantity": 1
+        }
+      ]
+    },
+    "res_0016": {
+      "id": "res_0016",
+      "customer_name": "Omer Doron",
+      "status": "active",
+      "created_at": "2026-06-11T13:30:05.874534+00:00",
+      "expires_at": "2026-06-16T13:30:05.874534+00:00",
+      "items": [
+        {
+          "product_id": "p002",
           "quantity": 1
         }
       ]

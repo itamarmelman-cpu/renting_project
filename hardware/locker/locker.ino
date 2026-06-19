@@ -5,7 +5,7 @@
 Servo lockServo;
 
 const int SERVO_PIN         = 9;
-const int MOVE_DELAY        = 5000;
+const int MOVE_DELAY        = 3800;
 const int EEPROM_STATE_ADDR = 0;
 
 const int SERVO_STOP        = 90;

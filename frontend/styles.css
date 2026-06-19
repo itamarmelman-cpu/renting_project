@@ -2197,6 +2197,13 @@ select.text-input, select.form-input {
 .bar-product { background: var(--palette-coral); }
 .bar-product:hover { background: var(--color-accent-dark); }
 
+.bar--weekly { background: var(--palette-coral); }
+.bar--weekly:hover { background: var(--color-accent); }
+
+.dashboard-chart-card--full { grid-column: 1 / -1; }
+
+.bar-chart-bars--weekly { gap: 12px; }
+
 .bar-label {
     display: block;
     font-size: 8px;
@@ -3092,6 +3099,9 @@ select.text-input, select.form-input {
    Mobile Navigation — Hamburger
    ============================================================================= */
 
+/* Mobile-only cart button — hidden on desktop */
+.app-header .mobile-cart-btn { display: none; }
+
 /* Hamburger button — hidden on desktop, shown on mobile */
 .hamburger-btn {
     display: none;
@@ -3193,29 +3203,12 @@ select.text-input, select.form-input {
         box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
     }
 
-    /* ── Cart button: expand from 44px circle into full-width pill ── */
-    .header-actions .cart-button {
-        width: 100%;
-        height: 48px;
-        border-radius: 50px;
-        padding: 10px 20px;
-        gap: var(--space-2);
-    }
-
-    .header-actions .cart-icon-wrapper {
-        width: 24px;
-        height: 24px;
-        padding: 0;
+    /* ── Mobile-only cart button: always visible in header ── */
+    .app-header .mobile-cart-btn {
+        display: flex;
         flex-shrink: 0;
+        margin-right: var(--space-2);
     }
-
-    /* Badge sits inline next to the cart icon (no longer absolute) */
-    .header-actions .cart-badge {
-        position: static;
-        margin: 0;
-        flex-shrink: 0;
-    }
-}
 
     /* ── Footer ── */
     .ecommerce-footer {
@@ -3223,7 +3216,20 @@ select.text-input, select.form-input {
         margin-top: var(--space-5);
     }
 
-    .footer-grid { gap: var(--space-4); }
+    .footer-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-4);
+        text-align: center;
+    }
+
+    .footer-brand {
+        align-items: center;
+    }
+
+    .brand-description {
+        text-align: center;
+        max-width: 100%;
+    }
 
     .footer-brand .logo-image-grabit { width: 110px; }
 
@@ -3233,7 +3239,12 @@ select.text-input, select.form-input {
         margin-bottom: var(--space-3);
     }
 
-    .footer-nav { gap: var(--space-2); }
+    .footer-nav {
+        gap: var(--space-2);
+        align-items: center;
+    }
+
+    .footer-nav a:hover { transform: none; }
 
     .footer-info .team-names { font-size: var(--text-xs); }
 

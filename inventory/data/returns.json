@@ -1,83 +1,212 @@
-[
-  {
-    "id": "ret_1747044000000",
-    "first_name": "יוסי",
-    "last_name": "לוי",
-    "product_id": "p009",
-    "product_name": "מטען נייד",
-    "quantity": 1,
-    "returned_at": "2026-05-12T10:00:00.000Z"
-  },
-  {
-    "id": "ret_1747044060000",
-    "first_name": "רונית",
-    "last_name": "כהן",
-    "product_id": "p003",
-    "product_name": "מילונית עברית-אנגלית",
-    "quantity": 1,
-    "returned_at": "2026-05-11T13:00:00.000Z"
-  },
-  {
-    "id": "ret_1780397363635_p001",
-    "first_name": "Omer",
-    "last_name": "Doron",
-    "product_id": "p001",
-    "product_name": "מחשבון מדעי",
-    "quantity": 1,
-    "returned_at": "2026-06-02T10:49:23.635817+00:00"
-  },
-  {
-    "id": "ret_1780409378138_p003",
-    "first_name": "Omer",
-    "last_name": "Doron",
-    "product_id": "p003",
-    "product_name": "מילונית עברית-אנגלית",
-    "quantity": 1,
-    "returned_at": "2026-06-02T14:09:38.137835+00:00"
-  },
-  {
-    "id": "ret_1780416643938_p003",
-    "first_name": "Omer",
-    "last_name": "Doron",
-    "product_id": "p003",
-    "product_name": "מילונית עברית-אנגלית",
-    "quantity": 1,
-    "returned_at": "2026-06-02T16:10:43.938373+00:00"
-  },
-  {
-    "id": "ret_1780416813178_p001",
-    "first_name": "Omer",
-    "last_name": "Doron",
-    "product_id": "p001",
-    "product_name": "מחשבון מדעי",
-    "quantity": 1,
-    "returned_at": "2026-06-02T16:13:33.178408+00:00"
-  },
-  {
-    "id": "ret_1780416813178_p003",
-    "first_name": "Omer",
-    "last_name": "Doron",
-    "product_id": "p003",
-    "product_name": "מילונית עברית-אנגלית",
-    "quantity": 1,
-    "returned_at": "2026-06-02T16:13:33.178408+00:00"
-  },
-  {
-    "id": "ret_1780417531172_p003",
-    "first_name": "Omer",
-    "last_name": "Doron",
-    "product_id": "p003",
-    "product_name": "מילונית עברית-אנגלית",
-    "quantity": 1,
-    "returned_at": "2026-06-02T16:25:31.172408+00:00"
-  },
-  {
-    "id": "ret_1780417762492_p003",
-    "first_name": "יונתן",
-    "last_name": "יעקובי",
-    "product_id": "p003",
-    "product_name": "מילונית עברית-אנגלית",
-    "quantity": 1,
-    "returned_at": "2026-06-02T16:29:22.492928+00:00"
-  }
-]
+{
+  "_counter": 23,
+  "returns": [
+    {
+      "id": "ret_1747044000000",
+      "first_name": "יוסי",
+      "last_name": "לוי",
+      "product_id": "p009",
+      "product_name": "מטען נייד",
+      "quantity": 1,
+      "returned_at": "2026-05-12T10:00:00.000Z"
+    },
+    {
+      "id": "ret_1747044060000",
+      "first_name": "רונית",
+      "last_name": "כהן",
+      "product_id": "p003",
+      "product_name": "מילונית עברית-אנגלית",
+      "quantity": 1,
+      "returned_at": "2026-05-11T13:00:00.000Z"
+    },
+    {
+      "id": "ret_1780397363635_p001",
+      "first_name": "Omer",
+      "last_name": "Doron",
+      "product_id": "p001",
+      "product_name": "מחשבון מדעי",
+      "quantity": 1,
+      "returned_at": "2026-06-02T10:49:23.635817+00:00"
+    },
+    {
+      "id": "ret_1780409378138_p003",
+      "first_name": "Omer",
+      "last_name": "Doron",
+      "product_id": "p003",
+      "product_name": "מילונית עברית-אנגלית",
+      "quantity": 1,
+      "returned_at": "2026-06-02T14:09:38.137835+00:00"
+    },
+    {
+      "id": "ret_1780416643938_p003",
+      "first_name": "Omer",
+      "last_name": "Doron",
+      "product_id": "p003",
+      "product_name": "מילונית עברית-אנגלית",
+      "quantity": 1,
+      "returned_at": "2026-06-02T16:10:43.938373+00:00"
+    },
+    {
+      "id": "ret_1780416813178_p001",
+      "first_name": "Omer",
+      "last_name": "Doron",
+      "product_id": "p001",
+      "product_name": "מחשבון מדעי",
+      "quantity": 1,
+      "returned_at": "2026-06-02T16:13:33.178408+00:00"
+    },
+    {
+      "id": "ret_1780416813178_p003",
+      "first_name": "Omer",
+      "last_name": "Doron",
+      "product_id": "p003",
+      "product_name": "מילונית עברית-אנגלית",
+      "quantity": 1,
+      "returned_at": "2026-06-02T16:13:33.178408+00:00"
+    },
+    {
+      "id": "ret_1780417531172_p003",
+      "first_name": "Omer",
+      "last_name": "Doron",
+      "product_id": "p003",
+      "product_name": "מילונית עברית-אנגלית",
+      "quantity": 1,
+      "returned_at": "2026-06-02T16:25:31.172408+00:00"
+    },
+    {
+      "id": "ret_1780417762492_p003",
+      "first_name": "יונתן",
+      "last_name": "יעקובי",
+      "product_id": "p003",
+      "product_name": "מילונית עברית-אנגלית",
+      "quantity": 1,
+      "returned_at": "2026-06-02T16:29:22.492928+00:00"
+    },
+    {
+      "id": "ret_1781182425229_p002",
+      "first_name": "שירה",
+      "last_name": "דורון",
+      "product_id": "p002",
+      "product_name": "מחשבון גרפי",
+      "quantity": 1,
+      "returned_at": "2026-06-11T12:53:45.229163+00:00"
+    },
+    {
+      "id": "ret_1781182425229_p003",
+      "first_name": "שירה",
+      "last_name": "דורון",
+      "product_id": "p003",
+      "product_name": "מילונית עברית-אנגלית",
+      "quantity": 1,
+      "returned_at": "2026-06-11T12:53:45.229163+00:00"
+    },
+    {
+      "id": "ret_1781182425229_p001",
+      "first_name": "שירה",
+      "last_name": "דורון",
+      "product_id": "p001",
+      "product_name": "מחשבון מדעי",
+      "quantity": 1,
+      "returned_at": "2026-06-11T12:53:45.229163+00:00"
+    },
+    {
+      "id": "ret_1781182488611_p001",
+      "first_name": "עומר",
+      "last_name": "דורון",
+      "product_id": "p001",
+      "product_name": "מחשבון מדעי",
+      "quantity": 1,
+      "returned_at": "2026-06-11T12:54:48.611553+00:00"
+    },
+    {
+      "id": "ret_1781182488611_p002",
+      "first_name": "עומר",
+      "last_name": "דורון",
+      "product_id": "p002",
+      "product_name": "מחשבון גרפי",
+      "quantity": 1,
+      "returned_at": "2026-06-11T12:54:48.611553+00:00"
+    },
+    {
+      "id": "ret_1781182488611_p003",
+      "first_name": "עומר",
+      "last_name": "דורון",
+      "product_id": "p003",
+      "product_name": "מילונית עברית-אנגלית",
+      "quantity": 1,
+      "returned_at": "2026-06-11T12:54:48.611553+00:00"
+    },
+    {
+      "id": "ret_1781183392422_p001",
+      "first_name": "עומר",
+      "last_name": "דורון",
+      "product_id": "p001",
+      "product_name": "מחשבון מדעי",
+      "quantity": 1,
+      "returned_at": "2026-06-11T13:09:52.422199+00:00"
+    },
+    {
+      "id": "ret_1781183392422_p002",
+      "first_name": "עומר",
+      "last_name": "דורון",
+      "product_id": "p002",
+      "product_name": "מחשבון גרפי",
+      "quantity": 1,
+      "returned_at": "2026-06-11T13:09:52.422199+00:00"
+    },
+    {
+      "id": "ret_1781183392422_p003",
+      "first_name": "עומר",
+      "last_name": "דורון",
+      "product_id": "p003",
+      "product_name": "מילונית עברית-אנגלית",
+      "quantity": 1,
+      "returned_at": "2026-06-11T13:09:52.422199+00:00"
+    },
+    {
+      "id": "ret_1781601346471_p001",
+      "first_name": "Omer",
+      "last_name": "Doron",
+      "product_id": "p001",
+      "product_name": "מחשבון מדעי",
+      "quantity": 1,
+      "returned_at": "2026-06-16T09:15:46.470970+00:00"
+    },
+    {
+      "id": "ret_1781601462851_p001",
+      "first_name": "Omer",
+      "last_name": "Doron",
+      "product_id": "p001",
+      "product_name": "מחשבון מדעי",
+      "quantity": 1,
+      "returned_at": "2026-06-16T09:17:42.851121+00:00"
+    },
+    {
+      "id": "ret_0021",
+      "first_name": "עומר",
+      "last_name": "דורון",
+      "product_id": "p001",
+      "product_name": "מחשבון מדעי",
+      "quantity": 1,
+      "returned_at": "2026-06-16T09:29:10.817767+00:00"
+    },
+    {
+      "id": "ret_0022",
+      "first_name": "עומר",
+      "last_name": "דורון",
+      "product_id": "p002",
+      "product_name": "מחשבון גרפי",
+      "quantity": 1,
+      "returned_at": "2026-06-16T09:29:10.817767+00:00"
+    },
+    {
+      "id": "ret_0023",
+      "first_name": "עומר",
+      "last_name": "דורון",
+      "product_id": "p003",
+      "product_name": "מילונית עברית-אנגלית",
+      "quantity": 1,
+      "returned_at": "2026-06-16T09:29:10.817767+00:00"
+    }
+  ]
+}
