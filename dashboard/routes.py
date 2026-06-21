@@ -1,6 +1,7 @@
 """
-dashboard/routes.py
--------------------
+===========================================================================
+dashboard/routes.py  -  GrabIt Renting System
+===========================================================================
 Flask Blueprint for the admin/association-facing API endpoints:
   GET  /api/stats
   GET  /api/orders
@@ -20,6 +21,7 @@ dashboard_bp = Blueprint("dashboard", __name__)
 
 
 def _db() -> Database:
+    """Return the shared Database singleton for this request."""
     return Database.get_instance()
 
 
@@ -30,22 +32,29 @@ def _require_admin():
         return jsonify(error="Unauthorized"), 401
 
 
-# ── Stats ─────────────────────────────────────────────────────────────────────
+# ===========================================================================
+# Stats
+# ===========================================================================
 
 @dashboard_bp.get("/api/stats")
 def stats():
+    """Return aggregated dashboard statistics (revenue, order counts, etc.)."""
     return jsonify(compute_stats(_db()))
 
 
-# ── Orders ────────────────────────────────────────────────────────────────────
+# ===========================================================================
+# Orders
+# ===========================================================================
 
 @dashboard_bp.get("/api/orders")
 def list_orders():
+    """Return all orders in the system."""
     return jsonify(_db().get_all_orders())
 
 
 @dashboard_bp.get("/api/orders/<order_id>")
 def get_order(order_id: str):
+    """Return a single order by ID, or 404 if it does not exist."""
     order = _db().get_order(order_id)
     if order is None:
         return jsonify(error="Order not found"), 404
@@ -54,6 +63,7 @@ def get_order(order_id: str):
 
 @dashboard_bp.patch("/api/orders/<order_id>")
 def patch_order(order_id: str):
+    """Update the status of an order. Expects JSON body {"status": "<new_status>"}."""
     body   = request.get_json() or {}
     status = body.get("status")
     if status is None:
@@ -64,19 +74,25 @@ def patch_order(order_id: str):
     return jsonify(ok=True, order=updated)
 
 
-# ── Returns ───────────────────────────────────────────────────────────────────
+# ===========================================================================
+# Returns
+# ===========================================================================
 
 @dashboard_bp.get("/api/returns")
 def list_returns():
+    """Return all completed return records."""
     return jsonify(_db().get_all_returns())
 
 
 @dashboard_bp.get("/api/active-rentals")
 def active_rentals():
+    """Return all rentals that are currently checked out (not yet returned)."""
     return jsonify(_db().get_active_rentals())
 
 
-# ── Reservations ──────────────────────────────────────────────────────────────
+# ===========================================================================
+# Reservations
+# ===========================================================================
 
 @dashboard_bp.get("/api/reservations")
 def list_reservations():

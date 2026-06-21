@@ -11,7 +11,7 @@ JSON files in inventory/data/:
   - returns.json       [{...return fields...}, ...]
   - reservations.json  {"_counter": int, "reservations": {resId: {...}}}
 
-No SQL.  All queries are pure Python list/dict comprehensions.
+All queries are pure Python list/dict comprehensions.
 """
 
 from __future__ import annotations
@@ -32,9 +32,9 @@ _RESERVATIONS_FILE  = DATA_DIR / "reservations.json"
 MAX_RESERVATION_DAYS = 5
 
 
-# =============================================================================
+# ===========================================================================
 # Helpers
-# =============================================================================
+# ===========================================================================
 
 def _now_iso() -> str:
     """Return the current UTC timestamp as an ISO-8601 string."""
@@ -48,9 +48,9 @@ def _atomic_write(path: Path, data) -> None:
     tmp.replace(path)
 
 
-# =============================================================================
-# Database singleton
-# =============================================================================
+# ===========================================================================
+# Database Singleton
+# ===========================================================================
 
 class Database:
     """
@@ -286,18 +286,6 @@ class Database:
         """
         with self._lock:
             return list(self._products.values())
-
-    def get_product(self, product_id: str) -> Optional[dict]:
-        """Fetch a single product by ID.
-
-        Args:
-            product_id: Unique product identifier.
-
-        Returns:
-            The product dict, or ``None`` if not found.
-        """
-        with self._lock:
-            return self._products.get(product_id)
 
     def add_product(self, data: dict) -> dict:
         """Add a new product and persist it.
@@ -833,18 +821,6 @@ class Database:
                 )
             ]
 
-    def get_reservation(self, reservation_id: str) -> Optional[dict]:
-        """Fetch a single reservation by ID.
-
-        Args:
-            reservation_id: Unique reservation identifier (e.g. ``res_0001``).
-
-        Returns:
-            The reservation as a camelCase API dict, or ``None`` if not found.
-        """
-        with self._lock:
-            r = self._reservations.get(reservation_id)
-            return self._reservation_to_api(r) if r else None
 
     def collect_reservation(self, reservation_id: str, provider: str,
                             rent_days: Dict[str, int]) -> dict:

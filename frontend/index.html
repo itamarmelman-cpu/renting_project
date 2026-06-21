@@ -14,7 +14,7 @@
         <script>
             // simple redirect to single app entry
             (function(){
-                const root = document.body; // Changed to document.body to access data-default-route
+                const root = document.body;
                 if (!root) return;
                 const route = root.getAttribute('data-default-route') || 'catalog';
                 location.replace(location.pathname + '#'+route);

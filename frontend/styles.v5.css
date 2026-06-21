@@ -3212,7 +3212,7 @@ select.text-input, select.form-input {
         flex-shrink: 0;
     }
 
-    /* Badge sits inline next to the cart icon (no longer absolute) */
+    /* Badge sits inline next to the cart icon */
     .header-actions .cart-badge {
         position: static;
         margin: 0;
@@ -3330,13 +3330,13 @@ select.text-input, select.form-input {
         width: 100%;
     }
 
-    /* KPI grid: 2 columns (was 3 from the 1100px breakpoint) */
+    /* KPI grid: 2 columns */
     .dashboard-kpi-grid { grid-template-columns: 1fr 1fr; }
 
     /* Charts grid: force 1 column so hourly + popular products stack vertically */
     .dashboard-charts-grid { grid-template-columns: 1fr; }
 
-    /* Insights grid: 1 column (was 2 from the 960px breakpoint) */
+    /* Insights grid: 1 column */
     .dashboard-insights-grid { grid-template-columns: 1fr; }
 
     /* Remove fixed min-heights that force unnecessary vertical space */

@@ -1,5 +1,5 @@
 {
-  "name": "agugo-arduino-bridge",
+  "name": "grabit-arduino-bridge",
   "version": "1.0.0",
   "description": "Node.js serial bridge between the Flask server and the Arduino lock hardware",
   "main": "arduino-bridge.js",

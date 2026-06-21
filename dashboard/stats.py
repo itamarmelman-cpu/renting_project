@@ -1,8 +1,9 @@
 """
-dashboard/stats.py
-------------------
+===========================================================================
+dashboard/stats.py  -  GrabIt Renting System
+===========================================================================
 Statistics aggregation for the admin dashboard.
-Reads exclusively from the Database singleton — no direct file access.
+Reads exclusively from the Database singleton - no direct file access.
 """
 
 from __future__ import annotations

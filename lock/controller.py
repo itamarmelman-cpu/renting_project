@@ -1,17 +1,17 @@
 """
-lock/controller.py
-------------------
-Locker control — Python HTTP client that delegates to the unchanged
+===========================================================================
+lock/controller.py  -  GrabIt Renting System
+===========================================================================
+Locker control - Python HTTP client that delegates to the
 Node.js Arduino bridge running on localhost:5001.
 
-Mirrors the locker logic from backend/server.py exactly:
   - Try to reach the bridge with a 3-second timeout
   - If bridge unreachable → return mocked response immediately
   - If bridge says alreadyInState → return current state immediately
   - Otherwise → wait up to 30 seconds for /api/locker/callback to fire
 
-The serial communication and Arduino protocol are NOT handled here;
-they remain in bridge/arduino-bridge.js (Node.js, untouched).
+The serial communication and Arduino protocol are handled in
+bridge/arduino-bridge.js (Node.js).
 """
 
 from __future__ import annotations
@@ -45,7 +45,9 @@ class LockerController:
         }
         self._lock = threading.Lock()
 
-    # ── Public API ────────────────────────────────────────────────────────────
+    # ===========================================================================
+    # Public API
+    # ===========================================================================
 
     def request(self, command: str) -> dict:
         """
@@ -101,7 +103,9 @@ class LockerController:
             event.set()
         return True
 
-    # ── Internal ──────────────────────────────────────────────────────────────
+    # ===========================================================================
+    # Internal
+    # ===========================================================================
 
     def _call_bridge(self, command: str) -> Optional[dict]:
         """

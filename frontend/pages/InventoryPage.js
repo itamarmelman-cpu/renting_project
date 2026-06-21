@@ -16,6 +16,7 @@ export class InventoryPage {
         this.currentFetchId   = 0;
         this._allOrders       = [];
         this._allReservations = [];
+        this._allReturns      = [];
 
         this.historyFilters = {
             customerName: '',
@@ -222,28 +223,22 @@ export class InventoryPage {
     // ===== Dashboard Data =====
 
     async fetchDashboardData() {
-        let orders;
-        try {
-            const res = await fetch('/api/orders');
-            if (res.ok) {
-                orders = await res.json();
-            } else {
-                throw new Error('API unavailable');
-            }
-        } catch {
-            orders = this.app.loadStoredJson('grabit.orders', []);
-        }
-        this._allOrders       = orders;
-        this.dashboardSummary = this.buildDashboardSummary(orders);
+        const [ordersRes, resRes, retRes] = await Promise.allSettled([
+            fetch('/api/orders'),
+            fetch('/api/reservations'),
+            fetch('/api/returns'),
+        ]);
 
-        // Load reservations from the backend (server auto-expires stale ones)
-        try {
-            const resRes = await fetch('/api/reservations');
-            this._allReservations = resRes.ok ? await resRes.json() : [];
-        } catch {
-            this._allReservations = [];
-        }
+        this._allOrders       = ordersRes.status === 'fulfilled' && ordersRes.value.ok
+            ? await ordersRes.value.json() : this.app.loadStoredJson('grabit.orders', []);
+        this._allReservations = resRes.status === 'fulfilled' && resRes.value.ok
+            ? await resRes.value.json() : [];
+        this._allReturns      = retRes.status === 'fulfilled' && retRes.value.ok
+            ? await retRes.value.json() : [];
 
+        this.dashboardSummary = this.buildDashboardSummary(this._allOrders);
+
+        this.dashboardSummary = this.buildDashboardSummary(this._allOrders);
         this.renderDashboardPanel();
     }
 
@@ -252,14 +247,11 @@ export class InventoryPage {
         const msPerDay = 24 * 60 * 60 * 1000;
 
         // Build a mutable map of unredeemed returns: `${customerName}|${productId}` -> qty
-        const storedReturns = this.app.loadStoredJson('grabit.returns', []);
         const remainingReturns = {};
-        for (const ret of storedReturns) {
-            const customerName = `${ret.firstName} ${ret.lastName}`;
-            for (const item of (ret.items || [])) {
-                const key = `${customerName}|${item.productId}`;
-                remainingReturns[key] = (remainingReturns[key] || 0) + (item.quantity || 1);
-            }
+        for (const ret of (this._allReturns || [])) {
+            const customerName = `${ret.firstName || ''} ${ret.lastName || ''}`.trim();
+            const key = `${customerName}|${ret.productId}`;
+            remainingReturns[key] = (remainingReturns[key] || 0) + (ret.quantity || 1);
         }
 
         const activeRentals = [];
@@ -840,10 +832,10 @@ export class InventoryPage {
                                         <strong>${app.escapeHtml(r.productName)}</strong>
                                         <span>${app.escapeHtml(r.customerName)}</span>
                                     </div>
-                                    <span class="due-badge">היום</span>
+                                    <span class="due-badge">${r.remainingDays <= 0 ? 'היום' : 'מחר'}</span>
                                 </li>`).join('')}
                         </ul>
-                    ` : `<div class="inventory-empty-state insight-empty insight-ok">אין פריטים המסתיימים היום</div>`}
+                    ` : `<div class="inventory-empty-state insight-empty insight-ok">אין פריטים המסתיימים בקרוב</div>`}
                 </div>
 
                 <div class="card insight-card">
@@ -874,8 +866,10 @@ export class InventoryPage {
                             ${activeReservations.map((r) => {
                                 const msLeft   = new Date(r.expiresAt).getTime() - now;
                                 const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
-                                const badge    = daysLeft <= 1
+                                const badge    = daysLeft <= 0
                                     ? `<span class="due-badge">היום</span>`
+                                    : daysLeft === 1
+                                    ? `<span class="due-badge">מחר</span>`
                                     : `<span class="stock-pill stock-low">${daysLeft} ימים</span>`;
                                 const itemSummary = (r.items || []).map((item) => {
                                     const p = app.getProductById(item.productId);

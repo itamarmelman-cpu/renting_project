@@ -19,8 +19,6 @@ import {
     removeCartItem, clearCart,
     calculateCartItemTotal, calculateCartTotal,
     setRentDaysPreference, getRentDaysPreference,
-    saveOrder, incrementInventoryForReturn,
-    validateReturn, saveReturnToLocal, getActiveRentedProductIds,
 } from './store.js?v=2';
 
 import { sendLockerServoCommand } from './services/lockerService.js?v=2';
@@ -186,6 +184,7 @@ function renderAppShell() {
                    aria-label="פנה אלינו בוואטסאפ">
                     <img src="catalog/logo-pics/whatsapp.png" alt="" aria-hidden="true">
                 </a>
+                <!-- demo email address for presentation purposes -->
                 <a href="https://mail.google.com/mail/?view=cm&to=agugoofficial@gmail.com"
                    class="fab fab-email"
                    target="_blank"
@@ -413,11 +412,6 @@ const appContext = {
     getRentDaysPreference,
     // Inventory & backend sync
     refreshFromBackend,
-    saveOrder,
-    incrementInventoryForReturn,
-    validateReturn,
-    saveReturnToLocal,
-    getActiveRentedProductIds,
     // Locker
     sendLockerServoCommand,
     // Persistence

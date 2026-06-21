@@ -1,3 +1,9 @@
+// ===========================================================================
+// bridge/arduino-bridge.js  -  GrabIt Renting System
+// ===========================================================================
+// Node.js Express server that relays HTTP commands from Flask to the Arduino
+// via serial communication.
+
 const express = require("express");
 const { SerialPort } = require("serialport");
 const { ReadlineParser } = require("@serialport/parser-readline");
@@ -6,10 +12,12 @@ const app = express();
 app.use(express.json());
 
 const HTTP_PORT   = 5001;
-const MAIN_SERVER = "http://localhost:5000"; // Flask server (was 3000 with Node.js)
+const MAIN_SERVER = "http://localhost:5000"; // Flask server
 const ARDUINO_COM = "COM5";
 
-// ── Serial connection ──────────────────────────────────────────────────────────
+// ===========================================================================
+// Serial Connection
+// ===========================================================================
 
 const arduino = new SerialPort({ path: ARDUINO_COM, baudRate: 9600, autoOpen: false });
 const parser  = arduino.pipe(new ReadlineParser({ delimiter: "\n" }));
@@ -44,7 +52,9 @@ arduino.on("close", () => {
 
 connectArduino();
 
-// ── Parse every line the Arduino sends ────────────────────────────────────────
+// ===========================================================================
+// Parse Arduino Messages
+// ===========================================================================
 //
 // Arduino vocabulary:
 //   STATE:UNLOCKED  → sent on boot (locker is open)
@@ -84,7 +94,9 @@ parser.on("data", async (line) => {
   }
 });
 
-// ── HTTP endpoints — called by the main server ─────────────────────────────────
+// ===========================================================================
+// HTTP Endpoints
+// ===========================================================================
 
 app.post("/api/locker/open", (req, res) => {
   if (!arduino.isOpen) {
